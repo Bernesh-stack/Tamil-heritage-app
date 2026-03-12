@@ -1,4 +1,3 @@
-// src/screens/LoginScreen.js
 import React, { useState } from 'react';
 import {
     View, Text, TextInput, TouchableOpacity, StyleSheet,
@@ -8,6 +7,9 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
 import { COLORS, SHADOWS } from '../constants/theme';
+
+const ADMIN_EMAIL = 'bernesh.in@gmail.com';
+const ADMIN_PASSWORD = 'Heritage@2024!';
 
 export default function LoginScreen({ navigation }) {
     const [email, setEmail] = useState('');
@@ -24,6 +26,12 @@ export default function LoginScreen({ navigation }) {
         }
         setLoading(true);
         try {
+            // Check admin credentials first
+            if (email.trim() === ADMIN_EMAIL && password === ADMIN_PASSWORD) {
+                await AsyncStorage.setItem('currentUser', JSON.stringify({ name: 'Admin', email: ADMIN_EMAIL, isAdmin: true }));
+                navigation.replace('AppTabs');
+                return;
+            }
             const raw = await AsyncStorage.getItem('heritageUsers');
             const users = raw ? JSON.parse(raw) : [];
             const user = users.find(u => u.email === email.trim() && u.password === password);
@@ -128,34 +136,17 @@ export default function LoginScreen({ navigation }) {
                         }
                     </TouchableOpacity>
 
-                    {/* Admin Login */}
-                    <TouchableOpacity style={styles.btnAdmin} activeOpacity={0.88}>
-                        <Text style={styles.btnAdminText}>ADMIN LOGIN</Text>
-                        <Ionicons name="arrow-forward" size={18} color="#fff" style={{ marginLeft: 8 }} />
-                    </TouchableOpacity>
-
-                    {/* Divider */}
-                    <View style={styles.dividerRow}>
-                        <View style={styles.dividerLine} />
-                        <Text style={styles.dividerText}>or continue with</Text>
-                        <View style={styles.dividerLine} />
+                    {/* Demo Hint */}
+                    <View style={styles.demoCard}>
+                        <View style={styles.demoHeader}>
+                            <Ionicons name="information-circle-outline" size={15} color={COLORS.orange} />
+                            <Text style={styles.demoTitle}>  DEMO – Admin Credentials</Text>
+                        </View>
+                        <Text style={styles.demoRow}><Text style={styles.demoKey}>Email    </Text>{ADMIN_EMAIL}</Text>
+                        <Text style={styles.demoRow}><Text style={styles.demoKey}>Password </Text>{ADMIN_PASSWORD}</Text>
                     </View>
 
-                    {/* Social */}
-                    <View style={styles.socialRow}>
-                        <TouchableOpacity style={styles.btnSocial} activeOpacity={0.85}>
-                            <View style={styles.googleIcon}>
-                                <Text style={{ color: '#fff', fontSize: 11, fontWeight: '800' }}>G</Text>
-                            </View>
-                            <Text style={styles.socialText}>Google</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity style={styles.btnSocial} activeOpacity={0.85}>
-                            <View style={styles.appleIcon}>
-                                <Ionicons name="logo-apple" size={16} color="#fff" />
-                            </View>
-                            <Text style={styles.socialText}>Apple</Text>
-                        </TouchableOpacity>
-                    </View>
+
                 </View>
 
                 {/* Footer */}
@@ -238,28 +229,17 @@ const styles = StyleSheet.create({
     },
     btnLoginText: { fontSize: 16, fontWeight: '700', color: '#fff', letterSpacing: 0.3 },
 
-    btnAdmin: {
-        flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-        backgroundColor: COLORS.orange, borderRadius: 50,
-        paddingVertical: 16, marginTop: 12,
-        shadowColor: COLORS.orange, shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.35, shadowRadius: 10, elevation: 5,
+    demoCard: {
+        marginTop: 14, borderRadius: 10, borderWidth: 1.2,
+        borderColor: '#F5C87A', backgroundColor: '#FFFBF0',
+        padding: 13,
     },
-    btnAdminText: { fontSize: 15, fontWeight: '700', color: '#fff', letterSpacing: 1 },
+    demoHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 6 },
+    demoTitle: { fontSize: 11, fontWeight: '700', color: COLORS.orange, letterSpacing: 0.6 },
+    demoRow: { fontSize: 12.5, color: COLORS.dark, fontFamily: Platform.OS === 'ios' ? 'Courier New' : 'monospace', marginTop: 2 },
+    demoKey: { fontWeight: '700', color: COLORS.medium },
 
-    dividerRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginVertical: 18 },
-    dividerLine: { flex: 1, height: 1, backgroundColor: COLORS.border },
-    dividerText: { fontSize: 12, color: COLORS.light },
 
-    socialRow: { flexDirection: 'row', gap: 12 },
-    btnSocial: {
-        flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-        borderWidth: 1.5, borderColor: COLORS.border, borderRadius: 10,
-        paddingVertical: 13, gap: 8,
-    },
-    socialText: { fontSize: 14, fontWeight: '600', color: COLORS.dark },
-    googleIcon: { width: 20, height: 20, borderRadius: 4, backgroundColor: '#4285F4', alignItems: 'center', justifyContent: 'center' },
-    appleIcon: { width: 20, height: 20, borderRadius: 4, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' },
 
     footerWrap: { alignItems: 'center', marginTop: 24 },
     footerText: { fontSize: 13.5, color: COLORS.medium, textAlign: 'center' },

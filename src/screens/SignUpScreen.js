@@ -1,4 +1,3 @@
-// src/screens/SignUpScreen.js
 import React, { useState } from 'react';
 import {
     View, Text, TextInput, TouchableOpacity, ScrollView,
@@ -9,7 +8,6 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { COLORS, SHADOWS } from '../constants/theme';
 
-// ✅ Field is defined OUTSIDE SignUpScreen so it never gets remounted on re-render
 function Field({ label, optional, icon, rightIcon, value, onChangeText, placeholder,
     secureTextEntry, keyboardType, errorKey, autoCapitalize, errors }) {
     return (

@@ -1,4 +1,4 @@
-// src/screens/HeritageScreen.js
+
 import React, { useState } from 'react';
 import {
     View, Text, TextInput, Image, ScrollView, TouchableOpacity,

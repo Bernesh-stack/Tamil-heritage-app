@@ -1,4 +1,3 @@
-// src/screens/PlaceholderScreen.js
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { MaterialCommunityIcons, Ionicons, Feather } from '@expo/vector-icons';
