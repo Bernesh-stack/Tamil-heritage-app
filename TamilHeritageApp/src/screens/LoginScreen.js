@@ -4,8 +4,8 @@ import {
     KeyboardAvoidingView, Platform, ScrollView,
     StatusBar, ActivityIndicator,
 } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { useAuth } from '../context/AuthContext';
 import { COLORS, SHADOWS } from '../constants/theme';
 import { API_BASE } from '../constants/api';
 
@@ -15,6 +15,7 @@ export default function LoginScreen({ navigation }) {
     const [showPass, setShowPass] = useState(false);
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
+    const { login } = useAuth();
 
     const handleLogin = async () => {
         setError('');
@@ -34,9 +35,9 @@ export default function LoginScreen({ navigation }) {
                 setError(data.message || 'Login failed. Please try again.');
                 return;
             }
-            await AsyncStorage.setItem('authToken', data.token);
-            await AsyncStorage.setItem('currentUser', JSON.stringify(data.user));
-            navigation.replace('AppTabs');
+            
+            await login(data.token, data.user);
+            // AppNavigator will handle the redirect automatically via Context state
         } catch (_) {
             setError('Cannot connect to server. Please check your connection.');
         } finally {
