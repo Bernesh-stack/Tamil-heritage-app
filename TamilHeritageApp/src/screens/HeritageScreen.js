@@ -1,56 +1,90 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
     View, Text, TextInput, Image, ScrollView, TouchableOpacity,
-    StyleSheet, StatusBar, ActivityIndicator,
+    StyleSheet, StatusBar, ActivityIndicator, Alert,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons, Feather } from '@expo/vector-icons';
+import api from '../api';
 import { COLORS, SHADOWS } from '../constants/theme';
-import { API_BASE } from '../constants/api';
-
-// Maps imageKey from DB to local bundled assets
-const IMAGE_MAP = {
-    brihadeeswarar: require('../../assets/images/brihadeeswarar.png'),
-    meenakshi:      require('../../assets/images/meenakshi.png'),
-    shore:          require('../../assets/images/shore.png'),
-};
+import HeritageCard from '../components/HeritageCard';
 
 const FILTERS = ['All Locations', 'Madurai', 'Thanjavur', 'Mahabalipuram'];
 
 export default function HeritageScreen({ navigation }) {
     const [sites, setSites] = useState([]);
+    const [savedSiteIds, setSavedSiteIds] = useState(new Set());
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [search, setSearch] = useState('');
     const [filter, setFilter] = useState('All Locations');
-    const [bookmarked, setBookmarked] = useState({});
+    const [language, setLanguage] = useState('EN'); // EN or TA
 
-    useEffect(() => {
-        fetchSites();
-    }, []);
-
-    const fetchSites = async () => {
+    const fetchData = useCallback(async () => {
         setLoading(true);
         setError('');
         try {
-            const res = await fetch(`${API_BASE}/api/heritage-sites`);
-            if (!res.ok) throw new Error('Failed to fetch');
-            const data = await res.json();
-            setSites(data);
-        } catch (_) {
+            const [sitesRes, savedRes] = await Promise.all([
+                api.get('/api/heritage-sites'),
+                api.get('/api/saved-sites'),
+            ]);
+            setSites(sitesRes.data);
+            setSavedSiteIds(new Set(savedRes.data.map(s => s.siteId?._id || s.siteId)));
+        } catch (err) {
+            console.error('Fetch error:', err);
             setError('Could not load heritage sites. Please check your connection.');
         } finally {
             setLoading(false);
         }
+    }, []);
+
+    useEffect(() => {
+        fetchData();
+    }, [fetchData]);
+
+    const toggleBookmark = async (siteId) => {
+        const isSaved = savedSiteIds.has(siteId);
+        try {
+            if (isSaved) {
+                await api.delete(`/api/saved-sites/${siteId}`);
+                setSavedSiteIds(prev => {
+                    const next = new Set(prev);
+                    next.delete(siteId);
+                    return next;
+                });
+            } else {
+                await api.post('/api/saved-sites', { siteId });
+                setSavedSiteIds(prev => new Set(prev).add(siteId));
+            }
+        } catch (err) {
+            Alert.alert('Error', 'Failed to update saved sites. Please try again.');
+        }
     };
 
-    const toggleBookmark = (id) => setBookmarked(b => ({ ...b, [id]: !b[id] }));
+    const toggleLanguage = () => {
+        setLanguage(l => (l === 'EN' ? 'TA' : 'EN'));
+    };
 
     const filtered = sites.filter(s => {
         const q = search.toLowerCase();
         const matchSearch = s.name.toLowerCase().includes(q) || s.location.toLowerCase().includes(q);
-        const matchFilter = filter === 'All Locations' || s.detail === filter;
+        const matchFilter = filter === 'All Locations' || s.location.includes(filter) || s.detail === filter;
         return matchSearch && matchFilter;
     });
+
+    const getTranslation = (key) => {
+        if (language === 'EN') return key;
+        const translations = {
+            'Explore Heritage': 'பாரம்பரியத்தை ஆராயுங்கள்',
+            'Discover the timeless wonders of Tamil Nadu': 'தமிழ்நாட்டின் காலமற்ற அதிசயங்களைக் கண்டறியுங்கள்',
+            'Search Sites...': 'தளங்களைத் தேடுங்கள்...',
+            'Loading heritage sites…': 'பாரம்பரிய தளங்களை ஏற்றுகிறது...',
+            'No sites match your search.': 'உங்கள் தேடலுக்கு எந்தத் தளங்களும் பொருந்தவில்லை.',
+            'View': 'காண்க',
+            'Heritage Sites': 'பாரம்பரிய இடங்கள்',
+            'DIGITAL PRESERVATION': 'டிஜிட்டல் பாதுகாப்பு',
+        };
+        return translations[key] || key;
+    };
 
     return (
         <View style={styles.screen}>
@@ -65,12 +99,12 @@ export default function HeritageScreen({ navigation }) {
                         <View style={styles.hamLine} />
                     </TouchableOpacity>
                     <View style={styles.brandInfo}>
-                        <Text style={styles.brandTop}>DIGITAL PRESERVATION</Text>
-                        <Text style={styles.brandBtm}>Heritage Sites</Text>
+                        <Text style={styles.brandTop}>{getTranslation('DIGITAL PRESERVATION')}</Text>
+                        <Text style={styles.brandBtm}>{getTranslation('Heritage Sites')}</Text>
                     </View>
                 </View>
-                <TouchableOpacity style={styles.langBadge}>
-                    <Text style={styles.langText}>EN</Text>
+                <TouchableOpacity style={styles.langBadge} onPress={toggleLanguage}>
+                    <Text style={styles.langText}>{language}</Text>
                 </TouchableOpacity>
             </View>
 
@@ -78,8 +112,8 @@ export default function HeritageScreen({ navigation }) {
 
                 {/* Hero */}
                 <View style={styles.hero}>
-                    <Text style={styles.heroTitle}>Explore Heritage</Text>
-                    <Text style={styles.heroSub}>Discover the timeless wonders of Tamil Nadu</Text>
+                    <Text style={styles.heroTitle}>{getTranslation('Explore Heritage')}</Text>
+                    <Text style={styles.heroSub}>{getTranslation('Discover the timeless wonders of Tamil Nadu')}</Text>
                 </View>
 
                 {/* Search */}
@@ -87,7 +121,7 @@ export default function HeritageScreen({ navigation }) {
                     <Feather name="search" size={18} color={COLORS.light} />
                     <TextInput
                         style={styles.searchInput}
-                        placeholder="Search Sites..."
+                        placeholder={getTranslation('Search Sites...')}
                         placeholderTextColor={COLORS.light}
                         value={search}
                         onChangeText={setSearch}
@@ -113,52 +147,30 @@ export default function HeritageScreen({ navigation }) {
                     {loading ? (
                         <View style={styles.centerWrap}>
                             <ActivityIndicator size="large" color={COLORS.orange} />
-                            <Text style={styles.loadingText}>Loading heritage sites…</Text>
+                            <Text style={styles.loadingText}>{getTranslation('Loading heritage sites…')}</Text>
                         </View>
                     ) : error ? (
                         <View style={styles.centerWrap}>
                             <MaterialCommunityIcons name="wifi-off" size={40} color={COLORS.light} />
                             <Text style={styles.emptyText}>{error}</Text>
-                            <TouchableOpacity style={styles.retryBtn} onPress={fetchSites}>
+                            <TouchableOpacity style={styles.retryBtn} onPress={fetchData}>
                                 <Text style={styles.retryText}>Retry</Text>
                             </TouchableOpacity>
                         </View>
                     ) : filtered.length === 0 ? (
                         <View style={styles.centerWrap}>
                             <MaterialCommunityIcons name="temple-hindu" size={40} color={COLORS.light} />
-                            <Text style={styles.emptyText}>No sites match your search.</Text>
+                            <Text style={styles.emptyText}>{getTranslation('No sites match your search.')}</Text>
                         </View>
                     ) : (
                         filtered.map(site => (
-                            <View key={site._id} style={styles.card}>
-                                <View style={styles.cardImgWrap}>
-                                    <Image source={IMAGE_MAP[site.imageKey]} style={styles.cardImg} resizeMode="cover" />
-                                    <View style={styles.locationBadge}>
-                                        <Ionicons name="location-sharp" size={10} color="#fff" />
-                                        <Text style={styles.locationText}>{site.location}</Text>
-                                    </View>
-                                    <TouchableOpacity style={styles.bookmarkBtn} onPress={() => toggleBookmark(site._id)}>
-                                        <Ionicons
-                                            name={bookmarked[site._id] ? 'bookmark' : 'bookmark-outline'}
-                                            size={16}
-                                            color={bookmarked[site._id] ? COLORS.orange : COLORS.dark}
-                                        />
-                                    </TouchableOpacity>
-                                </View>
-                                <View style={styles.cardBody}>
-                                    <View style={styles.cardInfo}>
-                                        <Text style={styles.cardName}>{site.name}</Text>
-                                        <Text style={styles.cardDesc}>{site.description}</Text>
-                                    </View>
-                                    <TouchableOpacity
-                                        style={styles.btnView}
-                                        onPress={() => navigation.navigate('HeritageDetail', { site })}
-                                        activeOpacity={0.88}
-                                    >
-                                        <Text style={styles.btnViewText}>View</Text>
-                                    </TouchableOpacity>
-                                </View>
-                            </View>
+                            <HeritageCard
+                                key={site._id}
+                                site={site}
+                                isBookmarked={savedSiteIds.has(site._id)}
+                                onBookmarkPress={() => toggleBookmark(site._id)}
+                                onPress={() => navigation.navigate('SiteDetails', { siteId: site._id })}
+                            />
                         ))
                     )}
                 </View>

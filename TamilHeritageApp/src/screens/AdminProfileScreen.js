@@ -16,14 +16,27 @@ export default function AdminProfileScreen({ navigation }) {
     const [editName, setEditName] = useState('');
     const { logout } = useAuth();
 
-    const loadUser = useCallback(async () => {
-        const raw = await AsyncStorage.getItem('currentUser');
-        if (raw) { const u = JSON.parse(raw); setUser(u); setEditName(u.name); }
-        const photo = await AsyncStorage.getItem('adminProfilePhoto');
-        if (photo) setPhotoUri(photo);
+    const loadUserInfo = useCallback(async () => {
+        try {
+            const raw = await AsyncStorage.getItem('currentUser');
+            if (raw) {
+                const u = JSON.parse(raw);
+                setUser(u);
+                setEditName(u.name);
+            }
+            
+            const photo = await AsyncStorage.getItem('adminProfilePhoto');
+            if (photo) {
+                setPhotoUri(photo);
+            }
+        } catch (error) {
+            console.error('Error loading admin profile:', error);
+        }
     }, []);
 
-    useEffect(() => { loadUser(); }, [loadUser]);
+    useEffect(() => {
+        loadUserInfo();
+    }, [loadUserInfo]);
 
     const handleSignOut = () => {
         if (Platform.OS === 'web') {

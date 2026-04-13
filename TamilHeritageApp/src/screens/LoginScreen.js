@@ -20,26 +20,40 @@ export default function LoginScreen({ navigation }) {
     const handleLogin = async () => {
         setError('');
         if (!email.trim() || !password) {
-            setError('Please enter your email and password.');
+            setError('Please enter both email and password.');
             return;
         }
+        
         setLoading(true);
         try {
             const res = await fetch(`${API_BASE}/api/auth/login`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email: email.trim(), password }),
+                body: JSON.stringify({ 
+                    email: email.trim().toLowerCase(), 
+                    password 
+                }),
             });
+            
             const data = await res.json();
+            
             if (!res.ok) {
-                setError(data.message || 'Login failed. Please try again.');
+                // Handle specific error messages from backend
+                const msg = data.message || 'Login failed. Please check your credentials.';
+                setError(msg);
                 return;
             }
             
+            if (!data.token || !data.user) {
+                setError('Invalid server response. Please try again.');
+                return;
+            }
+
             await login(data.token, data.user);
             // AppNavigator will handle the redirect automatically via Context state
-        } catch (_) {
-            setError('Cannot connect to server. Please check your connection.');
+        } catch (err) {
+            console.error('Login error:', err);
+            setError('Unable to connect to the server. Please check your internet connection.');
         } finally {
             setLoading(false);
         }
@@ -122,7 +136,12 @@ export default function LoginScreen({ navigation }) {
                     </View>
 
                     {/* Login Button */}
-                    <TouchableOpacity style={styles.btnLogin} onPress={handleLogin} disabled={loading} activeOpacity={0.88}>
+                    <TouchableOpacity 
+                        style={[styles.btnLogin, (loading || !email.trim() || !password) ? { backgroundColor: COLORS.light, shadowOpacity: 0 } : null]} 
+                        onPress={handleLogin} 
+                        disabled={loading || !email.trim() || !password} 
+                        activeOpacity={0.88}
+                    >
                         {loading
                             ? <ActivityIndicator color="#fff" />
                             : <>

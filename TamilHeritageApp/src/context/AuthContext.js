@@ -14,11 +14,17 @@ export const AuthProvider = ({ children }) => {
 
     const checkSession = async () => {
         try {
+            setIsLoading(true);
             const token = await AsyncStorage.getItem('authToken');
             const userJson = await AsyncStorage.getItem('currentUser');
+            
             if (token && userJson) {
+                const userData = JSON.parse(userJson);
                 setUserToken(token);
-                setUser(JSON.parse(userJson));
+                setUser(userData);
+                console.log('Session restored for:', userData.email);
+            } else {
+                console.log('No active session found.');
             }
         } catch (e) {
             console.error('Session check error:', e);
@@ -28,16 +34,30 @@ export const AuthProvider = ({ children }) => {
     };
 
     const login = async (token, userData) => {
-        setUserToken(token);
-        setUser(userData);
-        await AsyncStorage.setItem('authToken', token);
-        await AsyncStorage.setItem('currentUser', JSON.stringify(userData));
+        try {
+            setUserToken(token);
+            setUser(userData);
+            await AsyncStorage.setItem('authToken', token);
+            await AsyncStorage.setItem('currentUser', JSON.stringify(userData));
+        } catch (e) {
+            console.error('Error saving session:', e);
+        }
     };
 
     const logout = async () => {
-        setUserToken(null);
-        setUser(null);
-        await AsyncStorage.multiRemove(['authToken', 'currentUser', 'profilePhoto', 'adminProfilePhoto']);
+        try {
+            setUserToken(null);
+            setUser(null);
+            await AsyncStorage.multiRemove([
+                'authToken', 
+                'currentUser', 
+                'profilePhoto', 
+                'adminProfilePhoto',
+                'NAVIGATION_STATE_V1'
+            ]);
+        } catch (e) {
+            console.error('Error clearing session:', e);
+        }
     };
 
     return (

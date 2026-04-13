@@ -8,8 +8,16 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { COLORS, SHADOWS } from '../constants/theme';
 import { API_BASE } from '../constants/api';
 
+import { 
+    validateName, 
+    validateEmail, 
+    validatePassword, 
+    validateConfirmPassword, 
+    validatePhone 
+} from '../utils/validation';
+
 function Field({ label, optional, icon, rightIcon, value, onChangeText, placeholder,
-    secureTextEntry, keyboardType, errorKey, autoCapitalize, errors }) {
+    secureTextEntry, keyboardType, errorKey, autoCapitalize, errors, onBlur }) {
     return (
         <View style={styles.fieldGroup}>
             <View style={styles.fieldLabelRow}>
@@ -24,6 +32,7 @@ function Field({ label, optional, icon, rightIcon, value, onChangeText, placehol
                     placeholderTextColor={COLORS.light}
                     value={value}
                     onChangeText={onChangeText}
+                    onBlur={onBlur}
                     secureTextEntry={secureTextEntry}
                     keyboardType={keyboardType || 'default'}
                     autoCapitalize={autoCapitalize || 'none'}
@@ -47,34 +56,67 @@ export default function SignUpScreen({ navigation }) {
     const [loading, setLoading] = useState(false);
     const [toast, setToast] = useState({ type: '', msg: '' });
 
-    const set = (key, val) => setForm(f => ({ ...f, [key]: val }));
+    const set = (key, val) => {
+        setForm(f => ({ ...f, [key]: val }));
+        // Clear error when user starts typing
+        if (errors[key]) {
+            setErrors(prev => {
+                const newErrs = { ...prev };
+                delete newErrs[key];
+                return newErrs;
+            });
+        }
+    };
 
-    const validate = () => {
+    const validateField = (name, value) => {
+        let error = null;
+        switch (name) {
+            case 'fullName': error = validateName(value); break;
+            case 'email': error = validateEmail(value); break;
+            case 'password': error = validatePassword(value); break;
+            case 'confirmPassword': error = validateConfirmPassword(form.password, value); break;
+            case 'phone': error = validatePhone(value); break;
+        }
+        setErrors(prev => ({ ...prev, [name]: error }));
+        return !error;
+    };
+
+    const validateAll = () => {
         const e = {};
-        if (!form.fullName.trim()) e.fullName = 'Full name is required.';
-        const emailRx = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!emailRx.test(form.email)) e.email = 'A valid email is required.';
-        if (form.password.length < 6) e.password = 'Password must be at least 6 characters.';
-        if (form.password !== form.confirmPassword) e.confirmPassword = 'Passwords do not match.';
+        const nameErr = validateName(form.fullName);
+        const emailErr = validateEmail(form.email);
+        const passErr = validatePassword(form.password);
+        const cPassErr = validateConfirmPassword(form.password, form.confirmPassword);
+        const phoneErr = validatePhone(form.phone);
+
+        if (nameErr) e.fullName = nameErr;
+        if (emailErr) e.email = emailErr;
+        if (passErr) e.password = passErr;
+        if (cPassErr) e.confirmPassword = cPassErr;
+        if (phoneErr) e.phone = phoneErr;
         if (!termsAccepted) e.terms = 'Please accept the Terms & Privacy Policy.';
+
         setErrors(e);
         return Object.keys(e).length === 0;
     };
 
     const handleRegister = async () => {
-        if (!validate()) return;
+        if (!validateAll()) return;
         setLoading(true);
+        setToast({ type: '', msg: '' });
+        
         try {
             const res = await fetch(`${API_BASE}/api/auth/signup`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    name: form.fullName,
-                    email: form.email,
+                    name: form.fullName.trim(),
+                    email: form.email.trim().toLowerCase(),
                     password: form.password,
                     phone: form.phone,
                 }),
             });
+            
             const data = await res.json();
             if (!res.ok) {
                 setToast({ type: 'error', msg: data.message || 'Registration failed.' });
@@ -82,12 +124,21 @@ export default function SignUpScreen({ navigation }) {
             }
             setToast({ type: 'success', msg: '✓ Account created! Redirecting…' });
             setTimeout(() => navigation.replace('Login'), 1200);
-        } catch (_) {
-            Alert.alert('Error', 'Cannot connect to server. Please check your connection.');
+        } catch (error) {
+            console.error('Signup error:', error);
+            setToast({ type: 'error', msg: 'Network error. Please check your connection.' });
         } finally {
             setLoading(false);
         }
     };
+
+    const isFormInvalid = 
+        !form.fullName || 
+        !form.email || 
+        !form.password || 
+        form.password !== form.confirmPassword || 
+        !termsAccepted || 
+        Object.values(errors).some(e => e !== null);
 
     return (
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
@@ -118,25 +169,30 @@ export default function SignUpScreen({ navigation }) {
 
                     <Field label="Full Name" icon={<Ionicons name="person-outline" size={18} color={COLORS.light} />}
                         value={form.fullName} onChangeText={v => set('fullName', v)}
+                        onBlur={() => validateField('fullName', form.fullName)}
                         placeholder="e.g. Arun Kumar" errorKey="fullName" autoCapitalize="words" errors={errors} />
 
                     <Field label="Email Address" icon={<MaterialCommunityIcons name="email-outline" size={18} color={COLORS.light} />}
                         value={form.email} onChangeText={v => set('email', v)}
+                        onBlur={() => validateField('email', form.email)}
                         placeholder="name@example.com" keyboardType="email-address" errorKey="email" errors={errors} />
 
                     <Field label="Password" icon={<MaterialCommunityIcons name="lock-outline" size={18} color={COLORS.light} />}
                         rightIcon={<TouchableOpacity onPress={() => setShowPass(s => !s)}><Ionicons name={showPass ? 'eye-outline' : 'eye-off-outline'} size={18} color={COLORS.light} /></TouchableOpacity>}
                         value={form.password} onChangeText={v => set('password', v)}
+                        onBlur={() => validateField('password', form.password)}
                         placeholder="••••••••" secureTextEntry={!showPass} errorKey="password" errors={errors} />
 
                     <Field label="Confirm Password" icon={<MaterialCommunityIcons name="shield-lock-outline" size={18} color={COLORS.light} />}
                         rightIcon={<TouchableOpacity onPress={() => setShowCPass(s => !s)}><Ionicons name={showCPass ? 'eye-outline' : 'eye-off-outline'} size={18} color={COLORS.light} /></TouchableOpacity>}
                         value={form.confirmPassword} onChangeText={v => set('confirmPassword', v)}
+                        onBlur={() => validateField('confirmPassword', form.confirmPassword)}
                         placeholder="••••••••" secureTextEntry={!showCPass} errorKey="confirmPassword" errors={errors} />
 
                     <Field label="Phone Number" optional icon={<Ionicons name="call-outline" size={18} color={COLORS.light} />}
                         value={form.phone} onChangeText={v => set('phone', v)}
-                        placeholder="+91 00000 00000" keyboardType="phone-pad" errorKey="phone" errors={errors} />
+                        onBlur={() => validateField('phone', form.phone)}
+                        placeholder="Exactly 10 digits" keyboardType="phone-pad" errorKey="phone" errors={errors} />
 
                     <TouchableOpacity style={styles.termsRow} onPress={() => setTerms(t => !t)} activeOpacity={0.8}>
                         <View style={[styles.checkbox, termsAccepted ? styles.checkboxChecked : null]}>
@@ -148,7 +204,12 @@ export default function SignUpScreen({ navigation }) {
                     </TouchableOpacity>
                     {errors.terms ? <Text style={styles.errText}>{errors.terms}</Text> : null}
 
-                    <TouchableOpacity style={styles.btnPrimary} onPress={handleRegister} disabled={loading} activeOpacity={0.88}>
+                    <TouchableOpacity 
+                        style={[styles.btnPrimary, (loading || isFormInvalid) ? { backgroundColor: COLORS.light, shadowOpacity: 0 } : null]} 
+                        onPress={handleRegister} 
+                        disabled={loading || isFormInvalid} 
+                        activeOpacity={0.88}
+                    >
                         {loading
                             ? <ActivityIndicator color="#fff" />
                             : <><Text style={styles.btnPrimaryText}>Register Account</Text><Ionicons name="person-add-outline" size={18} color="#fff" style={{ marginLeft: 8 }} /></>

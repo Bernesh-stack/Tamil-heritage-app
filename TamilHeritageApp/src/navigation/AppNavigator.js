@@ -4,20 +4,23 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '../context/AuthContext';
 
 import SignUpScreen from '../screens/SignUpScreen';
 import LoginScreen from '../screens/LoginScreen';
 import HeritageScreen from '../screens/HeritageScreen';
-import HeritageDetailScreen from '../screens/HeritageDetailScreen';
+import SiteDetailsScreen from '../screens/SiteDetailsScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import AdminDashboardScreen from '../screens/AdminDashboardScreen';
 import AdminProfileScreen from '../screens/AdminProfileScreen';
+import SavedScreen from '../screens/SavedScreen';
 import PlaceholderScreen from '../screens/PlaceholderScreen';
 import { COLORS } from '../constants/theme';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
+const PERSISTENCE_KEY = 'NAVIGATION_STATE_V1';
 
 // ── User bottom tabs ──────────────────────────────────────
 function UserTabs() {
@@ -40,7 +43,7 @@ function UserTabs() {
         >
             <Tab.Screen name="Home" component={HeritageScreen} />
             <Tab.Screen name="Map" component={PlaceholderScreen} />
-            <Tab.Screen name="Saved" component={PlaceholderScreen} />
+            <Tab.Screen name="Saved" component={SavedScreen} />
             <Tab.Screen name="Profile" component={ProfileScreen} />
         </Tab.Navigator>
     );
@@ -75,9 +78,31 @@ function AdminTabs() {
 
 // ── Root navigator ────────────────────────────────────────
 export default function AppNavigator() {
-    const { isLoading, userToken, user } = useAuth();
+    const { isLoading: authLoading, userToken, user } = useAuth();
+    const [isNavReady, setIsNavReady] = React.useState(false);
+    const [initialState, setInitialState] = React.useState();
 
-    if (isLoading) {
+    React.useEffect(() => {
+        const restoreState = async () => {
+            try {
+                const savedStateString = await AsyncStorage.getItem(PERSISTENCE_KEY);
+                const state = savedStateString ? JSON.parse(savedStateString) : undefined;
+                if (state !== undefined) {
+                    setInitialState(state);
+                }
+            } catch (e) {
+                console.error('Failed to restore navigation state:', e);
+            } finally {
+                setIsNavReady(true);
+            }
+        };
+
+        if (!authLoading) {
+            restoreState();
+        }
+    }, [authLoading]);
+
+    if (authLoading || !isNavReady) {
         return (
             <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.pageBg }}>
                 <ActivityIndicator size="large" color={COLORS.orange} />
@@ -88,7 +113,12 @@ export default function AppNavigator() {
     const isAdmin = user?.isAdmin;
 
     return (
-        <NavigationContainer>
+        <NavigationContainer
+            initialState={initialState}
+            onStateChange={(state) =>
+                AsyncStorage.setItem(PERSISTENCE_KEY, JSON.stringify(state))
+            }
+        >
             <Stack.Navigator screenOptions={{ headerShown: false }}>
                 {userToken == null ? (
                     <>
@@ -98,17 +128,15 @@ export default function AppNavigator() {
                 ) : isAdmin ? (
                     <>
                         <Stack.Screen name="AdminTabs" component={AdminTabs} />
-                        <Stack.Screen name="HeritageDetail" component={HeritageDetailScreen} />
+                        <Stack.Screen name="SiteDetails" component={SiteDetailsScreen} />
                     </>
                 ) : (
                     <>
                         <Stack.Screen name="AppTabs" component={UserTabs} />
-                        <Stack.Screen name="HeritageDetail" component={HeritageDetailScreen} />
+                        <Stack.Screen name="SiteDetails" component={SiteDetailsScreen} />
                     </>
                 )}
             </Stack.Navigator>
         </NavigationContainer>
     );
 }
-
-
