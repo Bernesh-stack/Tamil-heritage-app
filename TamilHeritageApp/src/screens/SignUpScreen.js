@@ -119,9 +119,15 @@ export default function SignUpScreen({ navigation }) {
             
             const data = await res.json();
             if (!res.ok) {
+                console.log('--- SIGNUP FAILED ---');
+                console.log('Error Message:', data.message);
                 setToast({ type: 'error', msg: data.message || 'Registration failed.' });
                 return;
             }
+
+            console.log('--- SIGNUP SUCCESS ---');
+            console.log('Response Message:', data.message);
+
             setToast({ type: 'success', msg: '✓ Account created! Redirecting…' });
             setTimeout(() => navigation.replace('Login'), 1200);
         } catch (error) {

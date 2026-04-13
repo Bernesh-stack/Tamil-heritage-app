@@ -7,19 +7,35 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { COLORS, SHADOWS } from '../constants/theme';
 
-const FEEDBACK_DATA = [
-    { id: '1', name: 'Anbu Selvan', site: 'Brihadisvara Temple', time: '2h ago', msg: 'The AR visualization for the Vimana is incredible. Could we add more historical context for the murals in the inner sanctum?' },
-    { id: '2', name: 'Meena Krishnan', site: 'Mahabalipuram', time: '5h ago', msg: 'Found a small typo in the description of the Shore Temple. It says 7th century, but the signage here says 8th.' },
-    { id: '3', name: 'Rahul Dev', site: 'Meenakshi Temple', time: '8h ago', msg: 'The audio guide feature is very helpful. Would love to see more regional language options added.' },
-];
+import api from '../api';
 
 export default function AdminDashboardScreen({ navigation }) {
     const [adminName, setAdminName] = useState('Heritage Admin');
+    const [feedbacks, setFeedbacks] = useState([]);
+    const [stats, setStats] = useState({ totalUsers: 0, totalSites: 0, totalFeedback: 0, status: 'Active' });
+    const [loading, setLoading] = useState(true);
+
+    const fetchData = async () => {
+        try {
+            setLoading(true);
+            const [fbRes, statsRes] = await Promise.all([
+                api.get('/api/feedback'),
+                api.get('/api/admin/stats')
+            ]);
+            setFeedbacks(fbRes.data);
+            setStats(statsRes.data);
+        } catch (error) {
+            console.error('Error fetching admin dashboard data:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     useEffect(() => {
         AsyncStorage.getItem('currentUser').then(raw => {
             if (raw) { const u = JSON.parse(raw); setAdminName(u.name || 'Heritage Admin'); }
         });
+        fetchData();
     }, []);
 
     return (
@@ -76,23 +92,23 @@ export default function AdminDashboardScreen({ navigation }) {
                     <View style={styles.sectionHeader}>
                         <MaterialCommunityIcons name="comment-multiple-outline" size={20} color={COLORS.dark} />
                         <Text style={styles.sectionTitle}>Feedback & Community</Text>
-                        <View style={styles.newBadge}><Text style={styles.newBadgeText}>12 New</Text></View>
+                        <View style={styles.newBadge}><Text style={styles.newBadgeText}>{feedbacks.length} New</Text></View>
                     </View>
-                    {FEEDBACK_DATA.map(fb => (
-                        <View key={fb.id} style={styles.feedbackCard}>
+                    {feedbacks.map(fb => (
+                        <View key={fb._id} style={styles.feedbackCard}>
                             <View style={styles.fbHeader}>
                                 <View style={styles.fbAvatar}>
-                                    <Text style={styles.fbAvatarText}>{fb.name[0]}</Text>
+                                    <Text style={styles.fbAvatarText}>{(fb.userId?.name || 'U')[0]}</Text>
                                 </View>
                                 <View style={styles.fbMeta}>
-                                    <Text style={styles.fbName}>{fb.name}</Text>
-                                    <Text style={styles.fbSite}>{fb.site} • {fb.time}</Text>
+                                    <Text style={styles.fbName}>{fb.userId?.name || 'Anonymous'}</Text>
+                                    <Text style={styles.fbSite}>{fb.siteId?.name || 'Site'} • {new Date(fb.createdAt).toLocaleDateString()}</Text>
                                 </View>
                                 <TouchableOpacity>
                                     <Ionicons name="ellipsis-vertical" size={18} color={COLORS.light} />
                                 </TouchableOpacity>
                             </View>
-                            <Text style={styles.fbMsg}>{fb.msg}</Text>
+                            <Text style={styles.fbMsg}>{fb.message}</Text>
                             <View style={styles.fbActions}>
                                 <TouchableOpacity style={styles.fbReply}>
                                     <Text style={styles.fbReplyText}>Reply</Text>
@@ -116,8 +132,8 @@ export default function AdminDashboardScreen({ navigation }) {
                             <View>
                                 <Text style={styles.analyticsLabel}>MONTHLY ENGAGEMENT</Text>
                                 <View style={styles.analyticsNumRow}>
-                                    <Text style={styles.analyticsNum}>24.8k</Text>
-                                    <Text style={styles.analyticsGrowth}> ↑12%</Text>
+                                    <Text style={styles.analyticsNum}>{stats.totalUsers > 1000 ? (stats.totalUsers/1000).toFixed(1) + 'k' : stats.totalUsers}</Text>
+                                    <Text style={styles.analyticsGrowth}> Total Users</Text>
                                 </View>
                             </View>
                             <View style={styles.barChart}>
@@ -129,11 +145,11 @@ export default function AdminDashboardScreen({ navigation }) {
                         <View style={styles.analyticsStats}>
                             <View style={styles.analyticsStat}>
                                 <Text style={styles.analyticsStatLabel}>Active Sites</Text>
-                                <Text style={styles.analyticsStatVal}>142</Text>
+                                <Text style={styles.analyticsStatVal}>{stats.totalSites}</Text>
                             </View>
                             <View style={styles.analyticsStat}>
-                                <Text style={styles.analyticsStatLabel}>Preservation Score</Text>
-                                <Text style={styles.analyticsStatVal}>94/100</Text>
+                                <Text style={styles.analyticsStatLabel}>Total Feedback</Text>
+                                <Text style={styles.analyticsStatVal}>{stats.totalFeedback}</Text>
                             </View>
                         </View>
                         <TouchableOpacity style={styles.analyticsBtn} onPress={() => Alert.alert('Analytics Report', 'Coming soon!')}>

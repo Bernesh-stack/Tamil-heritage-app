@@ -12,6 +12,7 @@ app.use('/api/auth', require('./routes/auth'));
 app.use('/api/heritage-sites', require('./routes/heritageSites'));
 app.use('/api/saved-sites', require('./routes/savedSites'));
 app.use('/api/feedback', require('./routes/feedback'));
+app.use('/api/admin', require('./routes/admin'));
 
 app.get('/', (req, res) => res.json({ message: 'Tamil Heritage API running' }));
 

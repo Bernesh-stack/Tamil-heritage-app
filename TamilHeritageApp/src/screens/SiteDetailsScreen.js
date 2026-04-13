@@ -11,6 +11,16 @@ const IMAGE_MAP = {
     brihadeeswarar: require('../../assets/images/brihadeeswarar.png'),
     meenakshi:      require('../../assets/images/meenakshi.png'),
     shore:          require('../../assets/images/shore.png'),
+    gangaikonda:    require('../../assets/images/gangaikonda.png'),
+    airavatesvara:  require('../../assets/images/airavatesvara.png'),
+    kapaleeshwarar: require('../../assets/images/kapaleeshwarar.png'),
+    ramanathaswamy: require('../../assets/images/ramanathaswamy.png'),
+    vivekananda:    require('../../assets/images/vivekananda.png'),
+    nayakkar:       require('../../assets/images/nayakkar.png'),
+    srirangam:      require('../../assets/images/srirangam.png'),
+    gingee:         require('../../assets/images/gingee.png'),
+    chidambaram:    require('../../assets/images/chidambaram.png'),
+    nagaraja:       require('../../assets/images/nagaraja.png'),
 };
 
 export default function SiteDetailsScreen({ route, navigation }) {
@@ -70,7 +80,9 @@ export default function SiteDetailsScreen({ route, navigation }) {
 
     if (!site) return null;
 
-    const heroImage = IMAGE_MAP[site.imageKey] || IMAGE_MAP.brihadeeswarar;
+    const heroImage = (site.imageKey && IMAGE_MAP[site.imageKey]) 
+        ? IMAGE_MAP[site.imageKey] 
+        : (site.image ? { uri: site.image } : IMAGE_MAP.brihadeeswarar);
 
     return (
         <View style={styles.screen}>
@@ -106,25 +118,25 @@ export default function SiteDetailsScreen({ route, navigation }) {
 
                 {/* Info Card */}
                 <View style={styles.infoCard}>
-                    <Text style={styles.unescoLabel}>HISTORICAL HERITAGE</Text>
+                    <Text style={styles.unescoLabel}>HISTORICAL HERITAGE — {site.category?.toUpperCase() || 'CULTURAL SITE'}</Text>
                     <Text style={styles.siteName}>{site.name}</Text>
                     <View style={styles.locationRow}>
                         <Ionicons name="location-outline" size={14} color={COLORS.medium} />
                         <Text style={styles.locationText}>{site.location}</Text>
                         <Text style={styles.dot}> • </Text>
-                        <Text style={styles.yearText}>{site.detail || 'Tamil Nadu'}</Text>
+                        <Text style={styles.yearText}>{site.year || site.detail}</Text>
                     </View>
 
                     {/* Stats Row */}
                     <View style={styles.statsRow}>
                         <View style={styles.statItem}>
-                            <Text style={styles.statLabel}>TYPE</Text>
-                            <Text style={styles.statValue}>Temple</Text>
+                            <Text style={styles.statLabel}>BUILT BY</Text>
+                            <Text style={styles.statValue}>{site.builtBy || 'Ancient Civilizations'}</Text>
                         </View>
                         <View style={styles.statDivider} />
                         <View style={styles.statItem}>
                             <Text style={styles.statLabel}>REGION</Text>
-                            <Text style={styles.statValue}>{site.location.split(',')[0]}</Text>
+                            <Text style={styles.statValue}>{site.detail}</Text>
                         </View>
                     </View>
                 </View>
@@ -134,12 +146,9 @@ export default function SiteDetailsScreen({ route, navigation }) {
                     <Text style={styles.sectionTitle}>Overview</Text>
                     <Text style={styles.bodyText}>{site.description}</Text>
                     
-                    {/* Add some dummy content to match the premium feel */}
                     <Text style={styles.sectionTitle}>History & Significance</Text>
                     <Text style={styles.bodyText}>
-                        This site stands as a monumental achievement of Tamil architecture and craftsmanship. 
-                        Its intricate carvings and massive structures reflect the cultural and religious peak 
-                        of the era it was built in.
+                        {site.fullDescription || "This site stands as a monumental achievement of Tamil architecture and craftsmanship. Its intricate carvings reflect the cultural and religious peak of the era it was built in."}
                     </Text>
 
                     {/* Action Buttons */}

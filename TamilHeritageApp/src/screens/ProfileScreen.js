@@ -7,10 +7,12 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons, MaterialCommunityIcons, Feather } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
+import api from '../api';
 import { COLORS, SHADOWS } from '../constants/theme';
 
 export default function ProfileScreen({ navigation }) {
     const [user, setUser] = useState({ name: 'User', email: '', isAdmin: false });
+    const [stats, setStats] = useState({ savedCount: 0, feedbackCount: 0, recentlyViewed: 0 });
     const [photoUri, setPhotoUri] = useState(null);
     const [editVisible, setEditVisible] = useState(false);
     const [editName, setEditName] = useState('');
@@ -33,9 +35,27 @@ export default function ProfileScreen({ navigation }) {
         }
     }, []);
 
+    const fetchUserStats = useCallback(async () => {
+        try {
+            const [savedRes, feedbackRes] = await Promise.all([
+                api.get('/api/saved-sites'),
+                api.get('/api/feedback/user/me')
+            ]);
+            console.log('User Stats Fetched:', { saved: savedRes.data.length, feedback: feedbackRes.data.length });
+            setStats(prev => ({
+                ...prev,
+                savedCount: savedRes.data.length,
+                feedbackCount: feedbackRes.data.length
+            }));
+        } catch (error) {
+            console.error('Error fetching user stats:', error);
+        }
+    }, []);
+
     useEffect(() => {
         loadUserInfo();
-    }, [loadUserInfo]);
+        fetchUserStats();
+    }, [loadUserInfo, fetchUserStats]);
 
     const handleSignOut = () => {
         if (Platform.OS === 'web') {
@@ -126,7 +146,7 @@ export default function ProfileScreen({ navigation }) {
                     <Text style={styles.userEmail}>{user.email}</Text>
 
                     <View style={styles.roleBadge}>
-                        <Text style={styles.roleText}>USER ROLE</Text>
+                        <Text style={styles.roleText}>{user.isAdmin ? 'ADMINISTRATOR' : 'PRESERVATION USER'}</Text>
                     </View>
 
                     <TouchableOpacity style={styles.editBtn} onPress={() => { setEditName(user.name); setEditVisible(true); }} activeOpacity={0.85}>
@@ -141,20 +161,20 @@ export default function ProfileScreen({ navigation }) {
                     <View style={styles.activityRow}>
                         <View style={styles.activityItem}>
                             <Ionicons name="bookmark-outline" size={24} color={COLORS.orange} />
-                            <Text style={styles.activityNum}>24</Text>
+                            <Text style={styles.activityNum}>{stats.savedCount}</Text>
                             <Text style={styles.activityLabel}>Saved Sites</Text>
                         </View>
                         <View style={styles.activityItem}>
                             <MaterialCommunityIcons name="history" size={24} color={COLORS.orange} />
-                            <Text style={styles.activityNum}>128</Text>
+                            <Text style={styles.activityNum}>0</Text>
                             <Text style={styles.activityLabel}>Recently Viewed</Text>
                         </View>
                     </View>
-                    <TouchableOpacity style={styles.feedbackRow} activeOpacity={0.85}>
+                    <TouchableOpacity style={styles.feedbackRow} activeOpacity={0.85} onPress={() => navigation.navigate('Saved')}>
                         <View style={styles.feedbackLeft}>
                             <MaterialCommunityIcons name="message-text-outline" size={24} color={COLORS.orange} />
                             <View style={{ marginLeft: 14 }}>
-                                <Text style={styles.activityNum}>15</Text>
+                                <Text style={styles.activityNum}>{stats.feedbackCount}</Text>
                                 <Text style={styles.activityLabel}>Feedback Submitted</Text>
                             </View>
                         </View>
