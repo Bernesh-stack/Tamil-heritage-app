@@ -17,7 +17,7 @@ import AdminProfileScreen from '../screens/AdminProfileScreen';
 import AdminSiteFormScreen from '../screens/AdminSiteFormScreen';
 import SavedScreen from '../screens/SavedScreen';
 import MapScreen from '../screens/MapScreen';
-import PlaceholderScreen from '../screens/PlaceholderScreen';
+import AdminLogsScreen from '../screens/AdminLogsScreen';
 import { COLORS } from '../constants/theme';
 
 const Stack = createNativeStackNavigator();
@@ -72,7 +72,7 @@ function AdminTabs() {
         >
             <Tab.Screen name="Dash" component={AdminDashboardScreen} />
             <Tab.Screen name="Explore" component={HeritageScreen} />
-            <Tab.Screen name="Logs" component={PlaceholderScreen} />
+            <Tab.Screen name="Logs" component={AdminLogsScreen} />
             <Tab.Screen name="Profile" component={AdminProfileScreen} />
         </Tab.Navigator>
     );

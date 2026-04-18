@@ -74,18 +74,19 @@ router.post('/', auth, adminOnly, async (req, res) => {
 // PUT /api/heritage-sites/:id (Admin Only)
 router.put('/:id', auth, adminOnly, async (req, res) => {
     try {
-        const { name, description, image } = req.body;
+        const { name, location, overview, image } = req.body;
         
-        if (name === '' || description === '') {
-            return res.status(400).json({ message: 'Name and description cannot be empty.' });
+        // Comprehensive validation for required fields
+        if (!name || !location || !overview) {
+            return res.status(400).json({ message: 'Name, location, and overview are required.' });
         }
 
         if (image && !image.startsWith('http')) {
-            return res.status(400).json({ message: 'Image must be a valid URL.' });
+            return res.status(400).json({ message: 'Image must be a valid URL starting with http/https.' });
         }
 
         const site = await HeritageSite.findByIdAndUpdate(req.params.id, req.body, { new: true });
-        if (!site) return res.status(404).json({ message: 'Site not found' });
+        if (!site) return res.status(404).json({ message: 'Heritage site not found' });
         
         // Log activity
         await logAdminAction(req.user.id, 'UPDATE_SITE', site._id, `Updated site: ${site.name}`, req);

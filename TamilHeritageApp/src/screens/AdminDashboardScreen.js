@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
     View, Text, ScrollView, TouchableOpacity,
     StyleSheet, StatusBar, Alert, TextInput, ActivityIndicator,
+    RefreshControl
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -12,8 +13,11 @@ import api from '../api';
 export default function AdminDashboardScreen({ navigation }) {
     const [adminName, setAdminName] = useState('Heritage Admin');
     const [feedbacks, setFeedbacks] = useState([]);
+    const [heritageSites, setHeritageSites] = useState([]);
+    const [showUpdateList, setShowUpdateList] = useState(false);
+    const [editSiteId, setEditSiteId] = useState(null);
     const [logs, setLogs] = useState([]);
-    const [stats, setStats] = useState({ totalUsers: 0, totalSites: 0, totalFeedback: 0, status: 'Active' });
+    const [stats, setStats] = useState({ totalUsers: 0, totalHeritageSites: 0, totalFeedback: 0, status: 'Active' });
     const [loading, setLoading] = useState(true);
     const [showAddForm, setShowAddForm] = useState(false);
     const [formLoading, setFormLoading] = useState(false);
@@ -30,40 +34,79 @@ export default function AdminDashboardScreen({ navigation }) {
         longitude: ''
     });
 
-    const handleAddSite = async () => {
+    const handleSaveSite = async () => {
         if (!formData.name || !formData.location || !formData.overview) {
             return Alert.alert('Error', 'Name, Address and Overview are required.');
         }
 
         setFormLoading(true);
         try {
-            await api.post('/api/heritage-sites', formData);
-            Alert.alert('Success', 'Heritage site added successfully!');
+            if (editSiteId) {
+                // UPDATE MODE
+                await api.put(`/api/heritage-sites/${editSiteId}`, formData);
+                Alert.alert('Success', 'Heritage site updated successfully!');
+            } else {
+                // ADD MODE
+                await api.post('/api/heritage-sites', formData);
+                Alert.alert('Success', 'Heritage site added successfully!');
+            }
+            
             setShowAddForm(false);
+            setEditSiteId(null);
             setFormData({
                 name: '', location: '', builtBy: '', detail: '',
                 overview: '', history: '', significance: '', googleMapsUrl: '',
                 latitude: '', longitude: ''
             });
-            fetchData(); // Refresh stats
+            fetchData(); // Refresh list and stats
         } catch (error) {
-            Alert.alert('Error', error.response?.data?.message || 'Failed to add site');
+            Alert.alert('Error', error.response?.data?.message || 'Failed to save site');
         } finally {
             setFormLoading(false);
         }
     };
 
+    const handleEditSelection = (site) => {
+        setEditSiteId(site._id);
+        setFormData({
+            name: site.name || '',
+            location: site.location || '',
+            builtBy: site.builtBy || '',
+            detail: site.detail || '',
+            overview: site.overview || site.description || '',
+            history: site.history || '',
+            significance: site.significance || '',
+            googleMapsUrl: site.googleMapsUrl || '',
+            latitude: site.latitude?.toString() || '',
+            longitude: site.longitude?.toString() || ''
+        });
+        setShowAddForm(true);
+        setShowUpdateList(false);
+    };
+
+    const cancelForm = () => {
+        setShowAddForm(false);
+        setEditSiteId(null);
+        setFormData({
+            name: '', location: '', builtBy: '', detail: '',
+            overview: '', history: '', significance: '', googleMapsUrl: '',
+            latitude: '', longitude: ''
+        });
+    };
+
     const fetchData = async () => {
         try {
             setLoading(true);
-            const [fbRes, statsRes, logsRes] = await Promise.all([
+            const [fbRes, statsRes, logsRes, sitesRes] = await Promise.all([
                 api.get('/api/feedback'),
                 api.get('/api/admin/stats'),
-                api.get('/api/admin/logs')
+                api.get('/api/admin/logs'),
+                api.get('/api/heritage-sites')
             ]);
             setFeedbacks(fbRes.data);
             setStats(statsRes.data);
             setLogs(logsRes.data);
+            setHeritageSites(sitesRes.data);
         } catch (error) {
             console.error('Error fetching admin dashboard data:', error);
         } finally {
@@ -103,7 +146,13 @@ export default function AdminDashboardScreen({ navigation }) {
                 </View>
             </View>
 
-            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+            <ScrollView 
+                showsVerticalScrollIndicator={false} 
+                contentContainerStyle={styles.scrollContent}
+                refreshControl={
+                    <RefreshControl refreshing={loading} onRefresh={fetchData} colors={[COLORS.orange]} tintColor={COLORS.orange} />
+                }
+            >
 
                 {/* Site Management */}
                 <View style={styles.section}>
@@ -113,21 +162,63 @@ export default function AdminDashboardScreen({ navigation }) {
                     </View>
                     <View style={styles.mgmtRow}>
                         <TouchableOpacity 
-                            style={[styles.mgmtBtnPrimary, showAddForm && { backgroundColor: COLORS.dark }]} 
-                            onPress={() => setShowAddForm(!showAddForm)}
+                            style={[styles.mgmtBtnPrimary, (showAddForm && !editSiteId) && { backgroundColor: COLORS.dark }]} 
+                            onPress={() => {
+                                if (editSiteId) {
+                                    cancelForm();
+                                } else {
+                                    setShowAddForm(!showAddForm);
+                                    setShowUpdateList(false);
+                                }
+                            }}
                         >
-                            <Ionicons name={showAddForm ? "close-circle-outline" : "add-circle-outline"} size={26} color="#fff" />
-                            <Text style={styles.mgmtBtnPrimaryText}>{showAddForm ? 'Cancel' : 'Add Site'}</Text>
+                            <Ionicons name={(showAddForm && !editSiteId) ? "close-circle-outline" : "add-circle-outline"} size={26} color="#fff" />
+                            <Text style={styles.mgmtBtnPrimaryText}>{(showAddForm && !editSiteId) ? 'Cancel' : 'Add Site'}</Text>
                         </TouchableOpacity>
-                        <TouchableOpacity style={styles.mgmtBtnSecondary} onPress={() => navigation.navigate('Explore')}>
-                            <Ionicons name="location-outline" size={26} color={COLORS.dark} />
-                            <Text style={styles.mgmtBtnSecondaryText}>Update Site</Text>
+                        <TouchableOpacity 
+                            style={[styles.mgmtBtnSecondary, showUpdateList && { backgroundColor: COLORS.dark, borderColor: COLORS.dark }]} 
+                            onPress={() => {
+                                setShowUpdateList(!showUpdateList);
+                                setShowAddForm(false);
+                                setEditSiteId(null);
+                            }}
+                        >
+                            <Ionicons name={showUpdateList ? "close" : "create-outline"} size={26} color={showUpdateList ? "#fff" : COLORS.dark} />
+                            <Text style={[styles.mgmtBtnSecondaryText, showUpdateList && { color: "#fff" }]}>{showUpdateList ? 'Cancel' : 'Update Site'}</Text>
                         </TouchableOpacity>
                     </View>
 
+                    {showUpdateList && (
+                        <View style={styles.updateListContainer}>
+                            <Text style={styles.formTitle}>Select Site to Update</Text>
+                            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.siteChipScroll}>
+                                {heritageSites.map(site => (
+                                    <TouchableOpacity 
+                                        key={site._id} 
+                                        style={styles.siteChip}
+                                        onPress={() => handleEditSelection(site)}
+                                    >
+                                        <Text style={styles.siteChipText}>{site.name}</Text>
+                                        <Ionicons name="chevron-forward" size={12} color={COLORS.orange} />
+                                    </TouchableOpacity>
+                                ))}
+                            </ScrollView>
+                            {heritageSites.length === 0 && (
+                                <Text style={styles.emptyText}>No heritage sites found.</Text>
+                            )}
+                        </View>
+                    )}
+
                     {showAddForm && (
                         <View style={styles.addFormContainer}>
-                            <Text style={styles.formTitle}>Add New Heritage Site</Text>
+                            <View style={styles.formHeaderRow}>
+                                <Text style={styles.formTitle}>{editSiteId ? 'Update Heritage Site' : 'Add New Heritage Site'}</Text>
+                                {editSiteId && (
+                                    <TouchableOpacity onPress={cancelForm}>
+                                        <Text style={styles.cancelLink}>Cancel Edit</Text>
+                                    </TouchableOpacity>
+                                )}
+                            </View>
                             
                             <Text style={styles.label}>Name of the Place *</Text>
                             <TextInput 
@@ -228,13 +319,13 @@ export default function AdminDashboardScreen({ navigation }) {
 
                             <TouchableOpacity 
                                 style={[styles.submitBtn, formLoading && { opacity: 0.7 }]} 
-                                onPress={handleAddSite}
+                                onPress={handleSaveSite}
                                 disabled={formLoading}
                             >
                                 {formLoading ? (
                                     <ActivityIndicator color="#fff" />
                                 ) : (
-                                    <Text style={styles.submitBtnText}>Submit Site Details</Text>
+                                    <Text style={styles.submitBtnText}>{editSiteId ? 'Update Site Details' : 'Submit Site Details'}</Text>
                                 )}
                             </TouchableOpacity>
                         </View>
@@ -251,10 +342,14 @@ export default function AdminDashboardScreen({ navigation }) {
                 <View style={styles.analyticsCard}>
                     <View style={styles.analyticsDecor} />
                     <View style={styles.analyticsTop}>
-                        <Text style={styles.analyticsLabel}>TOTAL ENGAGEMENT</Text>
+                        <Text style={styles.analyticsLabel}>TOTAL PLATFORM ENGAGEMENT</Text>
                         <View style={styles.analyticsNumRow}>
-                            <Text style={styles.analyticsNum}>{stats.totalUsers + (stats.totalHeritageSites || 0) * 10 + feedbacks.length * 5}</Text>
-                            <Text style={styles.analyticsGrowth}>+12%</Text>
+                            <Text style={styles.analyticsNum}>
+                                {(stats.totalUsers || 0) + (stats.totalHeritageSites || 0) * 10 + (feedbacks.length || 0) * 5}
+                            </Text>
+                            {stats.totalUsers > 0 && (
+                                <Text style={styles.analyticsGrowth}>Live</Text>
+                            )}
                         </View>
                     </View>
 
@@ -352,6 +447,9 @@ export default function AdminDashboardScreen({ navigation }) {
                     <View style={styles.sectionHeader}>
                         <MaterialCommunityIcons name="history" size={20} color={COLORS.dark} />
                         <Text style={styles.sectionTitle}>Admin Activity Logs</Text>
+                        <TouchableOpacity onPress={() => navigation.navigate('Logs')}>
+                            <Text style={styles.viewMoreLink}>View All</Text>
+                        </TouchableOpacity>
                         <View style={styles.newBadge}>
                             <Text style={styles.newBadgeText}>LIVE</Text>
                         </View>
@@ -536,13 +634,34 @@ const styles = StyleSheet.create({
 
     // Existing Form Styles
     addFormContainer: { backgroundColor: COLORS.white, borderRadius: 24, padding: 24, marginTop: 10, ...SHADOWS.md, borderWidth: 1, borderColor: COLORS.border },
-    formTitle: { fontSize: 18, fontWeight: '800', color: COLORS.dark, marginBottom: 18 },
+    formHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 },
+    cancelLink: { fontSize: 13, fontWeight: '700', color: COLORS.orange, textDecorationLine: 'underline' },
+    viewMoreLink: { fontSize: 13, fontWeight: '700', color: COLORS.orange, marginRight: 8 },
+    formTitle: { fontSize: 18, fontWeight: '800', color: COLORS.dark },
     label: { fontSize: 13, fontWeight: '700', color: COLORS.medium, marginBottom: 8, marginTop: 12 },
     input: { backgroundColor: COLORS.inputBg, borderRadius: 14, padding: 14, fontSize: 14, color: COLORS.dark },
     textArea: { height: 90, textAlignVertical: 'top' },
     row: { flexDirection: 'row' },
     submitBtn: { backgroundColor: COLORS.orange, borderRadius: 16, paddingVertical: 16, alignItems: 'center', marginTop: 24, ...SHADOWS.lg },
     submitBtnText: { color: '#fff', fontSize: 16, fontWeight: '800' },
+
+    // Update List Styles
+    updateListContainer: { backgroundColor: COLORS.white, borderRadius: 24, padding: 20, marginTop: 10, ...SHADOWS.md, borderWidth: 1, borderColor: COLORS.border },
+    siteChipScroll: { marginTop: 12 },
+    siteChip: { 
+        flexDirection: 'row', 
+        alignItems: 'center', 
+        backgroundColor: COLORS.orangeBg, 
+        paddingHorizontal: 16, 
+        paddingVertical: 10, 
+        borderRadius: 20, 
+        marginRight: 10,
+        gap: 6,
+        borderWidth: 1,
+        borderColor: COLORS.orangeLight
+    },
+    siteChipText: { fontSize: 13, fontWeight: '700', color: COLORS.dark },
+    emptyText: { textAlign: 'center', color: COLORS.medium, marginTop: 10, fontStyle: 'italic' },
 
     // Logs Styles
     logsContainer: {
