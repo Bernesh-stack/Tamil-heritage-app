@@ -14,6 +14,29 @@ router.post('/', authMiddleware, async (req, res) => {
     }
 });
 
+// GET /api/feedback — get all feedbacks (admin/global)
+router.get('/', async (req, res) => {
+    try {
+        const list = await Feedback.find()
+            .populate('userId', 'name')
+            .populate('siteId', 'name')
+            .sort({ createdAt: -1 });
+        res.json(list);
+    } catch (err) {
+        res.status(500).json({ message: 'Server error', error: err.message });
+    }
+});
+
+// GET /api/feedback/user/me — get current user's feedbacks
+router.get('/user/me', authMiddleware, async (req, res) => {
+    try {
+        const list = await Feedback.find({ userId: req.user.id }).populate('siteId', 'name');
+        res.json(list);
+    } catch (err) {
+        res.status(500).json({ message: 'Server error', error: err.message });
+    }
+});
+
 // GET /api/feedback/:siteId
 router.get('/:siteId', async (req, res) => {
     try {

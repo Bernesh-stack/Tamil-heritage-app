@@ -7,16 +7,31 @@ const IMAGE_MAP = {
     brihadeeswarar: require('../../assets/images/brihadeeswarar.png'),
     meenakshi:      require('../../assets/images/meenakshi.png'),
     shore:          require('../../assets/images/shore.png'),
+    gangaikonda:    require('../../assets/images/gangaikonda.png'),
+    airavatesvara:  require('../../assets/images/airavatesvara.png'),
+    kapaleeshwarar: require('../../assets/images/kapaleeshwarar.png'),
+    ramanathaswamy: require('../../assets/images/ramanathaswamy.png'),
+    vivekananda:    require('../../assets/images/vivekananda.png'),
+    nayakkar:       require('../../assets/images/nayakkar.png'),
+    srirangam:      require('../../assets/images/srirangam.png'),
+    gingee:         require('../../assets/images/gingee.png'),
+    chidambaram:    require('../../assets/images/chidambaram.png'),
+    nagaraja:       require('../../assets/images/nagaraja.png'),
 };
 
 export default function HeritageCard({ site, isBookmarked, onBookmarkPress, onPress }) {
+    const cardImage = (site.imageKey && IMAGE_MAP[site.imageKey]) 
+        ? IMAGE_MAP[site.imageKey] 
+        : (site.image ? { uri: site.image } : IMAGE_MAP.brihadeeswarar);
+
     return (
         <View style={styles.card}>
             <View style={styles.cardImgWrap}>
                 <Image 
-                    source={IMAGE_MAP[site.imageKey] || IMAGE_MAP.brihadeeswarar} 
+                    source={cardImage} 
                     style={styles.cardImg} 
                     resizeMode="cover" 
+                    onError={(e) => console.log('Image load error for:', site.name, e.nativeEvent.error)}
                 />
                 <View style={styles.locationBadge}>
                     <Ionicons name="location-sharp" size={10} color="#fff" />

@@ -18,6 +18,7 @@ export default function HeritageScreen({ navigation }) {
     const [search, setSearch] = useState('');
     const [filter, setFilter] = useState('All Locations');
     const [language, setLanguage] = useState('EN'); // EN or TA
+    const [filters, setFilters] = useState(['All Locations']);
 
     const fetchData = useCallback(async () => {
         setLoading(true);
@@ -29,6 +30,10 @@ export default function HeritageScreen({ navigation }) {
             ]);
             setSites(sitesRes.data);
             setSavedSiteIds(new Set(savedRes.data.map(s => s.siteId?._id || s.siteId)));
+            
+            // Derive locations for filters
+            const locations = ['All Locations', ...new Set(sitesRes.data.map(s => s.location).filter(Boolean))];
+            setFilters(locations);
         } catch (err) {
             console.error('Fetch error:', err);
             setError('Could not load heritage sites. Please check your connection.');
@@ -67,7 +72,7 @@ export default function HeritageScreen({ navigation }) {
     const filtered = sites.filter(s => {
         const q = search.toLowerCase();
         const matchSearch = s.name.toLowerCase().includes(q) || s.location.toLowerCase().includes(q);
-        const matchFilter = filter === 'All Locations' || s.location.includes(filter) || s.detail === filter;
+        const matchFilter = filter === 'All Locations' || s.location.includes(filter);
         return matchSearch && matchFilter;
     });
 
@@ -130,7 +135,7 @@ export default function HeritageScreen({ navigation }) {
 
                 {/* Filter Chips */}
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
-                    {FILTERS.map(f => (
+                    {filters.map(f => (
                         <TouchableOpacity
                             key={f}
                             style={[styles.chip, filter === f ? styles.chipActive : styles.chipInactive]}

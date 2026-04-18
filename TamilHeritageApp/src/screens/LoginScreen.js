@@ -49,6 +49,10 @@ export default function LoginScreen({ navigation }) {
                 return;
             }
 
+            console.log('--- LOGIN SUCCESS ---');
+            console.log('User Data:', data.user);
+            console.log('Token Length:', data.token.length);
+
             await login(data.token, data.user);
             // AppNavigator will handle the redirect automatically via Context state
         } catch (err) {
@@ -150,16 +154,6 @@ export default function LoginScreen({ navigation }) {
                             </>
                         }
                     </TouchableOpacity>
-
-                    {/* Demo Hint */}
-                    <View style={styles.demoCard}>
-                        <View style={styles.demoHeader}>
-                            <Ionicons name="information-circle-outline" size={15} color={COLORS.orange} />
-                            <Text style={styles.demoTitle}>  DEMO – Admin Credentials</Text>
-                        </View>
-                        <Text style={styles.demoRow}><Text style={styles.demoKey}>Email    </Text>bernesh.in@gmail.com</Text>
-                        <Text style={styles.demoRow}><Text style={styles.demoKey}>Password </Text>Heritage@2024!</Text>
-                    </View>
 
                 </View>
 

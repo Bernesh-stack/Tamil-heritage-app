@@ -7,6 +7,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons, MaterialCommunityIcons, Feather } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
+import api from '../api';
 import { COLORS, SHADOWS } from '../constants/theme';
 
 export default function AdminProfileScreen({ navigation }) {
@@ -15,6 +16,9 @@ export default function AdminProfileScreen({ navigation }) {
     const [editVisible, setEditVisible] = useState(false);
     const [editName, setEditName] = useState('');
     const { logout } = useAuth();
+
+    const [stats, setStats] = useState({ totalUsers: 0, totalSites: 0, totalFeedback: 0, status: 'Active' });
+    const [statsLoading, setStatsLoading] = useState(true);
 
     const loadUserInfo = useCallback(async () => {
         try {
@@ -34,9 +38,23 @@ export default function AdminProfileScreen({ navigation }) {
         }
     }, []);
 
+    const fetchStats = useCallback(async () => {
+        try {
+            setStatsLoading(true);
+            const res = await api.get('/api/admin/stats');
+            console.log('Admin Stats Response:', res.data);
+            setStats(res.data);
+        } catch (error) {
+            console.error('Error fetching admin stats:', error);
+        } finally {
+            setStatsLoading(false);
+        }
+    }, []);
+
     useEffect(() => {
         loadUserInfo();
-    }, [loadUserInfo]);
+        fetchStats();
+    }, [loadUserInfo, fetchStats]);
 
     const handleSignOut = () => {
         if (Platform.OS === 'web') {
@@ -139,25 +157,25 @@ export default function AdminProfileScreen({ navigation }) {
                     <View style={styles.activityGrid}>
                         <View style={styles.activityItem}>
                             <MaterialCommunityIcons name="bank-outline" size={22} color={COLORS.orange} />
-                            <Text style={styles.activityNum}>1,284</Text>
+                            <Text style={styles.activityNum}>{stats.totalSites}</Text>
                             <Text style={styles.activityLabel}>HERITAGE SITES</Text>
-                            <Text style={styles.activityGrowth}>↑+12%</Text>
+                            <Text style={styles.activityGrowth}>Live Data</Text>
                         </View>
                         <View style={styles.activityItem}>
                             <MaterialCommunityIcons name="account-group-outline" size={22} color={COLORS.orange} />
-                            <Text style={styles.activityNum}>42.5k</Text>
+                            <Text style={styles.activityNum}>{stats.totalUsers}</Text>
                             <Text style={styles.activityLabel}>REGISTERED USERS</Text>
-                            <Text style={styles.activityGrowth}>↑+5.2%</Text>
+                            <Text style={styles.activityGrowth}>Total</Text>
                         </View>
                         <View style={styles.activityItem}>
                             <MaterialCommunityIcons name="message-text-outline" size={22} color={COLORS.orange} />
-                            <Text style={styles.activityNum}>892</Text>
+                            <Text style={styles.activityNum}>{stats.totalFeedback}</Text>
                             <Text style={styles.activityLabel}>FEEDBACK RECEIVED</Text>
-                            <Text style={[styles.activityGrowth, { color: COLORS.orange }]}>⊕14 New</Text>
+                            <Text style={[styles.activityGrowth, { color: COLORS.orange }]}>All Time</Text>
                         </View>
                         <View style={styles.activityItem}>
                             <MaterialCommunityIcons name="access-point" size={22} color={COLORS.green} />
-                            <Text style={[styles.activityNum, { color: COLORS.green }]}>Active</Text>
+                            <Text style={[styles.activityNum, { color: COLORS.green }]}>{stats.status}</Text>
                             <Text style={styles.activityLabel}>SYSTEM ACTIVITY</Text>
                             <Text style={[styles.activityGrowth, { color: COLORS.green }]}>99.9% Uptime</Text>
                         </View>
