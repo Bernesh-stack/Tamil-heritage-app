@@ -1,0 +1,28 @@
+# Tamil Heritage App - Execution Guide
+
+To run the full-stack application, you need to start both the backend and the frontend servers.
+
+## 1. Start the Backend Server (Node.js + MongoDB)
+Open a terminal and navigate to the backend folder:
+> cd backend
+> npm run dev
+
+This will start the server on http://localhost:5000 and connect to your MongoDB database.
+
+## 2. Start the Frontend Application (React Native Expo)
+Open a SECOND separate terminal and navigate to the app folder:
+> cd TamilHeritageApp
+> npm start
+
+Once the QR code appears:
+- Press 'w' to run in the web browser.
+- Press 'a' to run in an Android emulator.
+- Scan the QR code with the 'Expo Go' app on your phone to run on a real device.
+
+## 3. Admin Login Details
+You can use these credentials to access the Admin Dashboard:
+- Email: bernesh.in@gmail.com
+- Password: Heritage@2024!
+
+---
+Project maintained by Antigravity AI.

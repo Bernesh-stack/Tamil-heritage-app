@@ -13,48 +13,36 @@ export default function AdminSiteFormScreen({ route, navigation }) {
 
     const [formData, setFormData] = useState({
         name: site?.name || '',
-        description: site?.description || '',
         location: site?.location || '',
         detail: site?.detail || '',
-        image: site?.image || '',
-        category: site?.category || '',
-        latitude: site?.latitude ? String(site.latitude) : '',
-        longitude: site?.longitude ? String(site.longitude) : '',
+        builtBy: site?.builtBy || '',
+        overview: site?.overview || '',
+        history: site?.history || '',
+        significance: site?.significance || '',
+        googleMapsUrl: site?.googleMapsUrl || '',
     });
 
     const [loading, setLoading] = useState(false);
 
     const handleSave = async () => {
-        const { name, description, location, image, latitude, longitude } = formData;
+        const { name, location, overview } = formData;
 
-        // Validation
-        if (!name.trim() || !description.trim() || !location.trim()) {
-            return Alert.alert('Error', 'Name, Description, and Location are required.');
-        }
-
-        if (image && !image.startsWith('http')) {
-            return Alert.alert('Error', 'Image must be a valid URL starting with http/https.');
+        if (!name.trim() || !location.trim() || !overview.trim()) {
+            return Alert.alert('Error', 'Name, Address, and Overview are required.');
         }
 
         setLoading(true);
         try {
-            const payload = {
-                ...formData,
-                latitude: latitude ? parseFloat(latitude) : null,
-                longitude: longitude ? parseFloat(longitude) : null,
-            };
-
             if (isEditing) {
-                await api.put(`/api/heritage-sites/${site._id}`, payload);
+                await api.put(`/api/heritage-sites/${site._id}`, formData);
                 Alert.alert('Success', 'Site updated successfully!');
             } else {
-                await api.post('/api/heritage-sites', payload);
+                await api.post('/api/heritage-sites', formData);
                 Alert.alert('Success', 'Site added successfully!');
             }
             navigation.goBack();
         } catch (err) {
-            const msg = err.response?.data?.message || 'Something went wrong';
-            Alert.alert('Error', msg);
+            Alert.alert('Error', err.response?.data?.message || 'Something went wrong');
         } finally {
             setLoading(false);
         }
@@ -64,7 +52,6 @@ export default function AdminSiteFormScreen({ route, navigation }) {
         <View style={styles.screen}>
             <StatusBar barStyle="dark-content" backgroundColor="#fff" />
             
-            {/* Header */}
             <View style={styles.header}>
                 <TouchableOpacity onPress={() => navigation.goBack()}>
                     <Ionicons name="arrow-back" size={24} color={COLORS.dark} />
@@ -75,89 +62,37 @@ export default function AdminSiteFormScreen({ route, navigation }) {
 
             <ScrollView contentContainerStyle={styles.container}>
                 <Text style={styles.label}>Site Name *</Text>
-                <TextInput
-                    style={styles.input}
-                    value={formData.name}
-                    onChangeText={(t) => setFormData({ ...formData, name: t })}
-                    placeholder="e.g. Meenakshi Amman Temple"
-                />
+                <TextInput style={styles.input} value={formData.name} onChangeText={(t) => setFormData({ ...formData, name: t })} placeholder="e.g. Meenakshi Temple" />
 
-                <Text style={styles.label}>Location / State *</Text>
-                <TextInput
-                    style={styles.input}
-                    value={formData.location}
-                    onChangeText={(t) => setFormData({ ...formData, location: t })}
-                    placeholder="e.g. Madurai, Tamil Nadu"
-                />
-
-                <Text style={styles.label}>Region (City/District)</Text>
-                <TextInput
-                    style={styles.input}
-                    value={formData.detail}
-                    onChangeText={(t) => setFormData({ ...formData, detail: t })}
-                    placeholder="e.g. Madurai"
-                />
-
-                <Text style={styles.label}>Image URL (Public HTTPS)</Text>
-                <TextInput
-                    style={styles.input}
-                    value={formData.image}
-                    onChangeText={(t) => setFormData({ ...formData, image: t })}
-                    placeholder="https://example.com/image.jpg"
-                />
-
-                <Text style={styles.label}>Category</Text>
-                <TextInput
-                    style={styles.input}
-                    value={formData.category}
-                    onChangeText={(t) => setFormData({ ...formData, category: t })}
-                    placeholder="Temple / Monument / etc."
-                />
-
-                <Text style={styles.label}>Description *</Text>
-                <TextInput
-                    style={[styles.input, styles.textArea]}
-                    value={formData.description}
-                    onChangeText={(t) => setFormData({ ...formData, description: t })}
-                    multiline
-                    numberOfLines={4}
-                    placeholder="Short overview of the site..."
-                />
+                <Text style={styles.label}>Place Address *</Text>
+                <TextInput style={styles.input} value={formData.location} onChangeText={(t) => setFormData({ ...formData, location: t })} placeholder="Full address" />
 
                 <View style={styles.row}>
                     <View style={{ flex: 1 }}>
-                        <Text style={styles.label}>Latitude (Optional)</Text>
-                        <TextInput
-                            style={styles.input}
-                            value={formData.latitude}
-                            onChangeText={(t) => setFormData({ ...formData, latitude: t })}
-                            placeholder="e.g. 9.9197"
-                            keyboardType="numeric"
-                        />
+                        <Text style={styles.label}>Built By</Text>
+                        <TextInput style={styles.input} value={formData.builtBy} onChangeText={(t) => setFormData({ ...formData, builtBy: t })} placeholder="Dynasty/King" />
                     </View>
                     <View style={{ width: 16 }} />
                     <View style={{ flex: 1 }}>
-                        <Text style={styles.label}>Longitude (Optional)</Text>
-                        <TextInput
-                            style={styles.input}
-                            value={formData.longitude}
-                            onChangeText={(t) => setFormData({ ...formData, longitude: t })}
-                            placeholder="e.g. 78.1194"
-                            keyboardType="numeric"
-                        />
+                        <Text style={styles.label}>Region Name</Text>
+                        <TextInput style={styles.input} value={formData.detail} onChangeText={(t) => setFormData({ ...formData, detail: t })} placeholder="City/District" />
                     </View>
                 </View>
 
-                <TouchableOpacity 
-                    style={[styles.saveBtn, loading && { opacity: 0.7 }]} 
-                    onPress={handleSave}
-                    disabled={loading}
-                >
-                    {loading ? (
-                        <ActivityIndicator color="#fff" />
-                    ) : (
-                        <Text style={styles.saveBtnText}>{isEditing ? 'Update Site' : 'Create Site'}</Text>
-                    )}
+                <Text style={styles.label}>Overview *</Text>
+                <TextInput style={[styles.input, styles.textArea]} value={formData.overview} onChangeText={(t) => setFormData({ ...formData, overview: t })} multiline numberOfLines={4} placeholder="Short overview..." />
+
+                <Text style={styles.label}>History</Text>
+                <TextInput style={[styles.input, styles.textArea]} value={formData.history} onChangeText={(t) => setFormData({ ...formData, history: t })} multiline numberOfLines={4} placeholder="Historical context..." />
+
+                <Text style={styles.label}>Significance</Text>
+                <TextInput style={[styles.input, styles.textArea]} value={formData.significance} onChangeText={(t) => setFormData({ ...formData, significance: t })} multiline numberOfLines={4} placeholder="Architectural significance..." />
+
+                <Text style={styles.label}>Google Map Link</Text>
+                <TextInput style={styles.input} value={formData.googleMapsUrl} onChangeText={(t) => setFormData({ ...formData, googleMapsUrl: t })} placeholder="Paste Google Maps URL" />
+
+                <TouchableOpacity style={[styles.saveBtn, loading && { opacity: 0.7 }]} onPress={handleSave} disabled={loading}>
+                    {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveBtnText}>{isEditing ? 'Update Site' : 'Create Site'}</Text>}
                 </TouchableOpacity>
             </ScrollView>
         </View>

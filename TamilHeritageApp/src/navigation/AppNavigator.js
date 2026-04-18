@@ -16,6 +16,7 @@ import AdminDashboardScreen from '../screens/AdminDashboardScreen';
 import AdminProfileScreen from '../screens/AdminProfileScreen';
 import AdminSiteFormScreen from '../screens/AdminSiteFormScreen';
 import SavedScreen from '../screens/SavedScreen';
+import MapScreen from '../screens/MapScreen';
 import PlaceholderScreen from '../screens/PlaceholderScreen';
 import { COLORS } from '../constants/theme';
 
@@ -43,7 +44,7 @@ function UserTabs() {
             })}
         >
             <Tab.Screen name="Home" component={HeritageScreen} />
-            <Tab.Screen name="Map" component={PlaceholderScreen} />
+            <Tab.Screen name="Map" component={MapScreen} />
             <Tab.Screen name="Saved" component={SavedScreen} />
             <Tab.Screen name="Profile" component={ProfileScreen} />
         </Tab.Navigator>

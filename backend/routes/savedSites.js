@@ -8,7 +8,7 @@ router.get('/', authMiddleware, async (req, res) => {
         const saved = await SavedSite.find({ userId: req.user.id }).populate('siteId');
         res.json(saved);
     } catch (err) {
-        res.status(500).json({ message: 'Server error', error: err.message });
+        res.status(500).json({ message: 'Server error' });
     }
 });
 
@@ -16,11 +16,16 @@ router.get('/', authMiddleware, async (req, res) => {
 router.post('/', authMiddleware, async (req, res) => {
     try {
         const { siteId } = req.body;
+        if (!siteId) return res.status(400).json({ message: 'siteId is required' });
+        
+        // Prevent duplicate save
+        const existing = await SavedSite.findOne({ userId: req.user.id, siteId });
+        if (existing) return res.status(409).json({ message: 'Already saved' });
+
         const saved = await SavedSite.create({ userId: req.user.id, siteId });
         res.status(201).json(saved);
     } catch (err) {
-        if (err.code === 11000) return res.status(409).json({ message: 'Already saved' });
-        res.status(500).json({ message: 'Server error', error: err.message });
+        res.status(500).json({ message: 'Server error' });
     }
 });
 
@@ -30,7 +35,7 @@ router.delete('/:siteId', authMiddleware, async (req, res) => {
         await SavedSite.findOneAndDelete({ userId: req.user.id, siteId: req.params.siteId });
         res.json({ message: 'Removed from saved' });
     } catch (err) {
-        res.status(500).json({ message: 'Server error', error: err.message });
+        res.status(500).json({ message: 'Server error' });
     }
 });
 

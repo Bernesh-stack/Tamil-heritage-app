@@ -9,6 +9,7 @@ app.use(cors());
 app.use(express.json());
 
 app.use('/api/auth', require('./routes/auth'));
+app.use('/api/users', require('./routes/users'));
 app.use('/api/heritage-sites', require('./routes/heritageSites'));
 app.use('/api/saved-sites', require('./routes/savedSites'));
 app.use('/api/feedback', require('./routes/feedback'));

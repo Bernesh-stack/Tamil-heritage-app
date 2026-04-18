@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
     View, Text, ScrollView, TouchableOpacity,
-    StyleSheet, StatusBar, Alert,
+    StyleSheet, StatusBar, Alert, TextInput, ActivityIndicator,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -14,6 +14,42 @@ export default function AdminDashboardScreen({ navigation }) {
     const [feedbacks, setFeedbacks] = useState([]);
     const [stats, setStats] = useState({ totalUsers: 0, totalSites: 0, totalFeedback: 0, status: 'Active' });
     const [loading, setLoading] = useState(true);
+    const [showAddForm, setShowAddForm] = useState(false);
+    const [formLoading, setFormLoading] = useState(false);
+    const [formData, setFormData] = useState({
+        name: '',
+        location: '',
+        builtBy: '',
+        detail: '',
+        overview: '',
+        history: '',
+        significance: '',
+        googleMapsUrl: '',
+        latitude: '',
+        longitude: ''
+    });
+
+    const handleAddSite = async () => {
+        if (!formData.name || !formData.location || !formData.overview) {
+            return Alert.alert('Error', 'Name, Address and Overview are required.');
+        }
+
+        setFormLoading(true);
+        try {
+            await api.post('/api/heritage-sites', formData);
+            Alert.alert('Success', 'Heritage site added successfully!');
+            setShowAddForm(false);
+            setFormData({
+                name: '', location: '', builtBy: '', detail: '',
+                overview: '', history: '', significance: '', googleMapsUrl: ''
+            });
+            fetchData(); // Refresh stats
+        } catch (error) {
+            Alert.alert('Error', error.response?.data?.message || 'Failed to add site');
+        } finally {
+            setFormLoading(false);
+        }
+    };
 
     const fetchData = async () => {
         try {
@@ -72,9 +108,12 @@ export default function AdminDashboardScreen({ navigation }) {
                         <Text style={styles.sectionTitle}>Site Management</Text>
                     </View>
                     <View style={styles.mgmtRow}>
-                        <TouchableOpacity style={styles.mgmtBtnPrimary} onPress={() => navigation.navigate('AdminSiteForm')}>
-                            <Ionicons name="add-circle-outline" size={26} color="#fff" />
-                            <Text style={styles.mgmtBtnPrimaryText}>Add Site</Text>
+                        <TouchableOpacity 
+                            style={[styles.mgmtBtnPrimary, showAddForm && { backgroundColor: COLORS.dark }]} 
+                            onPress={() => setShowAddForm(!showAddForm)}
+                        >
+                            <Ionicons name={showAddForm ? "close-circle-outline" : "add-circle-outline"} size={26} color="#fff" />
+                            <Text style={styles.mgmtBtnPrimaryText}>{showAddForm ? 'Cancel' : 'Add Site'}</Text>
                         </TouchableOpacity>
                         <TouchableOpacity style={styles.mgmtBtnSecondary} onPress={() => navigation.navigate('Explore')}>
                             <Ionicons name="location-outline" size={26} color={COLORS.dark} />
@@ -85,6 +124,121 @@ export default function AdminDashboardScreen({ navigation }) {
                             <Text style={[styles.mgmtBtnSecondaryText, { color: '#E74C3C' }]}>Remove</Text>
                         </TouchableOpacity>
                     </View>
+
+                    {showAddForm && (
+                        <View style={styles.addFormContainer}>
+                            <Text style={styles.formTitle}>Add New Heritage Site</Text>
+                            
+                            <Text style={styles.label}>Name of the Place *</Text>
+                            <TextInput 
+                                style={styles.input} 
+                                value={formData.name}
+                                onChangeText={t => setFormData({...formData, name: t})}
+                                placeholder="e.g. Meenakshi Temple"
+                            />
+
+                            <Text style={styles.label}>Place Address *</Text>
+                            <TextInput 
+                                style={styles.input} 
+                                value={formData.location}
+                                onChangeText={t => setFormData({...formData, location: t})}
+                                placeholder="Full address details"
+                            />
+
+                            <View style={styles.row}>
+                                <View style={{ flex: 1 }}>
+                                    <Text style={styles.label}>Built By</Text>
+                                    <TextInput 
+                                        style={styles.input} 
+                                        value={formData.builtBy}
+                                        onChangeText={t => setFormData({...formData, builtBy: t})}
+                                        placeholder="Dynasty/King"
+                                    />
+                                </View>
+                                <View style={{ width: 12 }} />
+                                <View style={{ flex: 1 }}>
+                                    <Text style={styles.label}>Region Name</Text>
+                                    <TextInput 
+                                        style={styles.input} 
+                                        value={formData.detail}
+                                        onChangeText={t => setFormData({...formData, detail: t})}
+                                        placeholder="City/District"
+                                    />
+                                </View>
+                            </View>
+
+                            <Text style={styles.label}>Overview *</Text>
+                            <TextInput 
+                                style={[styles.input, styles.textArea]} 
+                                value={formData.overview}
+                                onChangeText={t => setFormData({...formData, overview: t})}
+                                multiline numberOfLines={3}
+                                placeholder="Short overview of the site"
+                            />
+
+                            <Text style={styles.label}>History</Text>
+                            <TextInput 
+                                style={[styles.input, styles.textArea]} 
+                                value={formData.history}
+                                onChangeText={t => setFormData({...formData, history: t})}
+                                multiline numberOfLines={3}
+                                placeholder="Historical background"
+                            />
+
+                            <Text style={styles.label}>Significance</Text>
+                            <TextInput 
+                                style={[styles.input, styles.textArea]} 
+                                value={formData.significance}
+                                onChangeText={t => setFormData({...formData, significance: t})}
+                                multiline numberOfLines={3}
+                                placeholder="Architectural/Cultural significance"
+                            />
+
+                            <Text style={styles.label}>Google Map Address / Link</Text>
+                            <TextInput 
+                                style={styles.input} 
+                                value={formData.googleMapsUrl}
+                                onChangeText={t => setFormData({...formData, googleMapsUrl: t})}
+                                placeholder="Paste Google Maps link here"
+                            />
+
+                            <View style={styles.row}>
+                                <View style={{ flex: 1 }}>
+                                    <Text style={styles.label}>Latitude</Text>
+                                    <TextInput 
+                                        style={styles.input} 
+                                        value={formData.latitude}
+                                        onChangeText={t => setFormData({...formData, latitude: t})}
+                                        placeholder="e.g. 10.782"
+                                        keyboardType="numeric"
+                                    />
+                                </View>
+                                <View style={{ width: 12 }} />
+                                <View style={{ flex: 1 }}>
+                                    <Text style={styles.label}>Longitude</Text>
+                                    <TextInput 
+                                        style={styles.input} 
+                                        value={formData.longitude}
+                                        onChangeText={t => setFormData({...formData, longitude: t})}
+                                        placeholder="e.g. 79.131"
+                                        keyboardType="numeric"
+                                    />
+                                </View>
+                            </View>
+
+                            <TouchableOpacity 
+                                style={[styles.submitBtn, formLoading && { opacity: 0.7 }]} 
+                                onPress={handleAddSite}
+                                disabled={formLoading}
+                            >
+                                {formLoading ? (
+                                    <ActivityIndicator color="#fff" />
+                                ) : (
+                                    <Text style={styles.submitBtnText}>Submit Site Details</Text>
+                                )}
+                            </TouchableOpacity>
+                        </View>
+                    )}
                 </View>
 
                 {/* Feedback & Community */}
@@ -217,4 +371,14 @@ const styles = StyleSheet.create({
     analyticsBtnText: { fontSize: 14, fontWeight: '700', color: '#fff' },
     downloadBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: 14, paddingVertical: 14 },
     downloadBtnText: { fontSize: 14, fontWeight: '700', color: '#fff' },
+
+    // New Form Styles
+    addFormContainer: { backgroundColor: COLORS.white, borderRadius: 20, padding: 20, marginTop: 10, ...SHADOWS.sm, borderWidth: 1, borderColor: COLORS.border },
+    formTitle: { fontSize: 16, fontWeight: '800', color: COLORS.dark, marginBottom: 15 },
+    label: { fontSize: 12, fontWeight: '700', color: COLORS.medium, marginBottom: 6, marginTop: 10 },
+    input: { backgroundColor: COLORS.inputBg, borderRadius: 12, padding: 12, fontSize: 14, color: COLORS.dark },
+    textArea: { height: 80, textAlignVertical: 'top' },
+    row: { flexDirection: 'row' },
+    submitBtn: { backgroundColor: COLORS.orange, borderRadius: 14, paddingVertical: 14, alignItems: 'center', marginTop: 24, ...SHADOWS.md },
+    submitBtnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
 });

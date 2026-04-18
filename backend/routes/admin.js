@@ -16,19 +16,19 @@ router.get('/stats', authMiddleware, async (req, res) => {
         }
 
         const [userCount, siteCount, feedbackCount] = await Promise.all([
-            User.countDocuments(),
-            HeritageSite.countDocuments(),
-            Feedback.countDocuments()
+            User.countDocuments() || 0,
+            HeritageSite.countDocuments() || 0,
+            Feedback.countDocuments() || 0
         ]);
 
         res.json({
             totalUsers: userCount,
-            totalSites: siteCount,
+            totalHeritageSites: siteCount,
             totalFeedback: feedbackCount,
-            status: 'Active' // System status
+            status: 'Active'
         });
     } catch (err) {
-        res.status(500).json({ message: 'Server error', error: err.message });
+        res.status(500).json({ message: 'Server error' });
     }
 });
 

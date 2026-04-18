@@ -122,11 +122,13 @@ export default function SiteDetailsScreen({ route, navigation }) {
     };
 
     const handleGetDirections = () => {
-        if (site.latitude && site.longitude) {
+        if (site.googleMapsUrl) {
+            Linking.openURL(site.googleMapsUrl).catch(() => Alert.alert('Error', 'Could not open Google Maps.'));
+        } else if (site.latitude && site.longitude) {
             const url = `https://www.google.com/maps?q=${site.latitude},${site.longitude}`;
             Linking.openURL(url).catch(() => Alert.alert('Error', 'Could not open Google Maps.'));
         } else {
-            Alert.alert('Location not available', 'Coordinates for this site have not been added yet.');
+            Alert.alert('Directions not available', 'No address or coordinates provided for this site.');
         }
     };
 
@@ -215,12 +217,30 @@ export default function SiteDetailsScreen({ route, navigation }) {
                 {/* Description Sections */}
                 <View style={styles.section}>
                     <Text style={styles.sectionTitle}>Overview</Text>
-                    <Text style={styles.bodyText}>{site.description}</Text>
+                    <Text style={styles.bodyText}>{site.overview || site.description}</Text>
                     
-                    <Text style={styles.sectionTitle}>History & Significance</Text>
-                    <Text style={styles.bodyText}>
-                        {site.fullDescription || "This site stands as a monumental achievement of Tamil architecture and craftsmanship. Its intricate carvings reflect the cultural and religious peak of the era it was built in."}
-                    </Text>
+                    {site.history && (
+                        <>
+                            <Text style={styles.sectionTitle}>History</Text>
+                            <Text style={styles.bodyText}>{site.history}</Text>
+                        </>
+                    )}
+
+                    {site.significance && (
+                        <>
+                            <Text style={styles.sectionTitle}>Significance</Text>
+                            <Text style={styles.bodyText}>{site.significance}</Text>
+                        </>
+                    )}
+
+                    {!site.history && !site.significance && (
+                        <>
+                            <Text style={styles.sectionTitle}>Details</Text>
+                            <Text style={styles.bodyText}>
+                                {site.fullDescription || "This site stands as a monumental achievement of Tamil architecture and craftsmanship."}
+                            </Text>
+                        </>
+                    )}
 
                     {/* Action Buttons */}
                     <View style={styles.actionRow}>
