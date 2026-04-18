@@ -38,6 +38,7 @@ const adminOnly = async (req, res, next) => {
 };
 
 const auth = require('../middleware/auth');
+const logAdminAction = require('../middleware/adminLogger');
 
 // POST /api/heritage-sites (Admin Only)
 router.post('/', auth, adminOnly, async (req, res) => {
@@ -60,6 +61,10 @@ router.post('/', auth, adminOnly, async (req, res) => {
         }
 
         const site = await HeritageSite.create(finalData);
+        
+        // Log activity
+        await logAdminAction(req.user.id, 'CREATE_SITE', site._id, `Created site: ${site.name}`, req);
+        
         res.status(201).json(site);
     } catch (err) {
         res.status(500).json({ message: 'Server error', error: err.message });
@@ -81,6 +86,10 @@ router.put('/:id', auth, adminOnly, async (req, res) => {
 
         const site = await HeritageSite.findByIdAndUpdate(req.params.id, req.body, { new: true });
         if (!site) return res.status(404).json({ message: 'Site not found' });
+        
+        // Log activity
+        await logAdminAction(req.user.id, 'UPDATE_SITE', site._id, `Updated site: ${site.name}`, req);
+        
         res.json(site);
     } catch (err) {
         res.status(500).json({ message: 'Server error', error: err.message });
@@ -91,12 +100,18 @@ router.put('/:id', auth, adminOnly, async (req, res) => {
 router.delete('/:id', auth, adminOnly, async (req, res) => {
     try {
         const siteId = req.params.id;
-        const site = await HeritageSite.findByIdAndDelete(siteId);
+        const site = await HeritageSite.findById(siteId);
         if (!site) return res.status(404).json({ message: 'Site not found' });
+        
+        const siteName = site.name;
+        await HeritageSite.findByIdAndDelete(siteId);
         
         // Auto-remove from all users' saved lists
         const SavedSite = require('../models/SavedSite');
         await SavedSite.deleteMany({ siteId });
+
+        // Log activity
+        await logAdminAction(req.user.id, 'DELETE_SITE', siteId, `Deleted site: ${siteName}`, req);
 
         res.json({ message: 'Site and its bookmarks deleted successfully' });
     } catch (err) {

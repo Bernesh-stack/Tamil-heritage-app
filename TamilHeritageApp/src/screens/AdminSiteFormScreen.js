@@ -20,6 +20,8 @@ export default function AdminSiteFormScreen({ route, navigation }) {
         history: site?.history || '',
         significance: site?.significance || '',
         googleMapsUrl: site?.googleMapsUrl || '',
+        latitude: site?.latitude?.toString() || '',
+        longitude: site?.longitude?.toString() || '',
     });
 
     const [loading, setLoading] = useState(false);
@@ -90,6 +92,30 @@ export default function AdminSiteFormScreen({ route, navigation }) {
 
                 <Text style={styles.label}>Google Map Link</Text>
                 <TextInput style={styles.input} value={formData.googleMapsUrl} onChangeText={(t) => setFormData({ ...formData, googleMapsUrl: t })} placeholder="Paste Google Maps URL" />
+
+                <View style={[styles.row, { marginTop: 12 }]}>
+                    <View style={{ flex: 1 }}>
+                        <Text style={styles.label}>Latitude (Optional)</Text>
+                        <TextInput 
+                            style={styles.input} 
+                            value={formData.latitude} 
+                            onChangeText={(t) => setFormData({ ...formData, latitude: t })} 
+                            placeholder="Optional" 
+                            keyboardType="numeric" 
+                        />
+                    </View>
+                    <View style={{ width: 16 }} />
+                    <View style={{ flex: 1 }}>
+                        <Text style={styles.label}>Longitude (Optional)</Text>
+                        <TextInput 
+                            style={styles.input} 
+                            value={formData.longitude} 
+                            onChangeText={(t) => setFormData({ ...formData, longitude: t })} 
+                            placeholder="Optional" 
+                            keyboardType="numeric" 
+                        />
+                    </View>
+                </View>
 
                 <TouchableOpacity style={[styles.saveBtn, loading && { opacity: 0.7 }]} onPress={handleSave} disabled={loading}>
                     {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveBtnText}>{isEditing ? 'Update Site' : 'Create Site'}</Text>}
