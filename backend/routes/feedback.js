@@ -1,14 +1,20 @@
 const router = require('express').Router();
 const authMiddleware = require('../middleware/auth');
 const Feedback = require('../models/Feedback');
+const User = require('../models/User');
 
 // POST /api/feedback
 router.post('/', authMiddleware, async (req, res) => {
     try {
         const { siteId, message, rating } = req.body;
         if (!message) return res.status(400).json({ message: 'Message is required.' });
+        
         const fb = await Feedback.create({ userId: req.user.id, siteId, message, rating });
-        res.status(201).json(fb);
+        
+        // Mark feedback as given for the user
+        await User.findByIdAndUpdate(req.user.id, { feedbackGiven: true });
+        
+        res.status(201).json({ message: 'Feedback submitted successfully', feedback: fb });
     } catch (err) {
         res.status(500).json({ message: 'Server error', error: err.message });
     }

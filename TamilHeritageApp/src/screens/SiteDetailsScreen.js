@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
     View, Text, Image, ScrollView, TouchableOpacity,
     StyleSheet, StatusBar, Alert, Share, ActivityIndicator,
-    Linking,
+    Linking, Modal, TextInput,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import api from '../api';
@@ -33,27 +33,44 @@ export default function SiteDetailsScreen({ route, navigation }) {
     const [site, setSite] = useState(null);
     const [loading, setLoading] = useState(true);
     const [favorited, setFavorited] = useState(false);
+    const [feedbackVisible, setFeedbackVisible] = useState(false);
+    const [rating, setRating] = useState(0);
+    const [feedbackMsg, setFeedbackMsg] = useState('');
+    const [submitting, setSubmitting] = useState(false);
 
     const trackView = useCallback(async () => {
         try {
             const { data } = await api.put(`/api/users/view-site/${siteId}`);
             if (data.triggerFeedback) {
-                Alert.alert(
-                    "Smart Feedback",
-                    "Would you like to give feedback?",
-                    [
-                        { text: "No", style: "cancel" },
-                        { 
-                            text: "Yes", 
-                            onPress: () => Alert.alert("Feedback", "Feedback form coming soon! Thank you for your interest.") 
-                        }
-                    ]
-                );
+                setFeedbackVisible(true);
             }
         } catch (err) {
             console.log('Error tracking view:', err);
         }
     }, [siteId]);
+
+    const handleFeedbackSubmit = async () => {
+        if (rating === 0) return Alert.alert('Rating Required', 'Please select a star rating.');
+        if (rating < 4 && !feedbackMsg.trim()) return Alert.alert('Comments Required', 'Please let us know how we can improve.');
+
+        setSubmitting(true);
+        try {
+            await api.post('/api/feedback', {
+                siteId,
+                rating,
+                message: rating >= 4 ? `Rated ${rating} stars` : feedbackMsg
+            });
+            setFeedbackVisible(false);
+            Alert.alert('Thank You!', 'Thank you for your valuable feedback! It help us preserve our heritage better.');
+            // Reset form
+            setRating(0);
+            setFeedbackMsg('');
+        } catch (err) {
+            Alert.alert('Error', 'Failed to submit feedback. Please try again.');
+        } finally {
+            setSubmitting(false);
+        }
+    };
 
     const fetchDetails = useCallback(async () => {
         setLoading(true);
@@ -122,11 +139,13 @@ export default function SiteDetailsScreen({ route, navigation }) {
     };
 
     const handleGetDirections = () => {
-        if (site.latitude && site.longitude) {
+        if (site.googleMapsUrl) {
+            Linking.openURL(site.googleMapsUrl).catch(() => Alert.alert('Error', 'Could not open Google Maps.'));
+        } else if (site.latitude && site.longitude) {
             const url = `https://www.google.com/maps?q=${site.latitude},${site.longitude}`;
             Linking.openURL(url).catch(() => Alert.alert('Error', 'Could not open Google Maps.'));
         } else {
-            Alert.alert('Location not available', 'Coordinates for this site have not been added yet.');
+            Alert.alert('Directions not available', 'No address or coordinates provided for this site.');
         }
     };
 
@@ -215,18 +234,36 @@ export default function SiteDetailsScreen({ route, navigation }) {
                 {/* Description Sections */}
                 <View style={styles.section}>
                     <Text style={styles.sectionTitle}>Overview</Text>
-                    <Text style={styles.bodyText}>{site.description}</Text>
+                    <Text style={styles.bodyText}>{site.overview || site.description}</Text>
                     
-                    <Text style={styles.sectionTitle}>History & Significance</Text>
-                    <Text style={styles.bodyText}>
-                        {site.fullDescription || "This site stands as a monumental achievement of Tamil architecture and craftsmanship. Its intricate carvings reflect the cultural and religious peak of the era it was built in."}
-                    </Text>
+                    {site.history && (
+                        <>
+                            <Text style={styles.sectionTitle}>History</Text>
+                            <Text style={styles.bodyText}>{site.history}</Text>
+                        </>
+                    )}
+
+                    {site.significance && (
+                        <>
+                            <Text style={styles.sectionTitle}>Significance</Text>
+                            <Text style={styles.bodyText}>{site.significance}</Text>
+                        </>
+                    )}
+
+                    {!site.history && !site.significance && (
+                        <>
+                            <Text style={styles.sectionTitle}>Details</Text>
+                            <Text style={styles.bodyText}>
+                                {site.fullDescription || "This site stands as a monumental achievement of Tamil architecture and craftsmanship."}
+                            </Text>
+                        </>
+                    )}
 
                     {/* Action Buttons */}
                     <View style={styles.actionRow}>
                         <TouchableOpacity
                             style={styles.btnAction}
-                            onPress={() => Alert.alert('Nearby Attractions', 'Exploring nearby spots…')}
+                            onPress={() => navigation.navigate('Map')}
                         >
                             <MaterialCommunityIcons name="compass-outline" size={20} color="#fff" />
                             <Text style={styles.btnActionText}>Nearby Attractions</Text>
@@ -270,8 +307,72 @@ export default function SiteDetailsScreen({ route, navigation }) {
                         ))}
                     </ScrollView>
                 </View>
-
             </ScrollView>
+
+            {/* Feedback Modal */}
+            <Modal
+                visible={feedbackVisible}
+                transparent={true}
+                animationType="fade"
+                onRequestClose={() => setFeedbackVisible(false)}
+            >
+                <View style={styles.modalOverlay}>
+                    <View style={styles.feedbackModal}>
+                        <View style={styles.modalHeader}>
+                            <Text style={styles.modalTitle}>How was your experience?</Text>
+                            <TouchableOpacity onPress={() => setFeedbackVisible(false)}>
+                                <Ionicons name="close" size={24} color={COLORS.medium} />
+                            </TouchableOpacity>
+                        </View>
+                        
+                        <Text style={styles.modalSub}>Your feedback helps us preserve Tamil culture.</Text>
+
+                        {/* Stars */}
+                        <View style={styles.starsRow}>
+                            {[1, 2, 3, 4, 5].map((s) => (
+                                <TouchableOpacity key={s} onPress={() => setRating(s)}>
+                                    <Ionicons 
+                                        name={s <= rating ? "star" : "star-outline"} 
+                                        size={36} 
+                                        color={s <= rating ? COLORS.orange : COLORS.light} 
+                                        style={{ marginHorizontal: 4 }}
+                                    />
+                                </TouchableOpacity>
+                            ))}
+                        </View>
+
+                        {/* Conditional Message Input */}
+                        {rating > 0 && rating < 4 && (
+                            <View style={styles.inputSection}>
+                                <Text style={styles.inputLabel}>What can we improve? *</Text>
+                                <TextInput
+                                    style={styles.feedbackInput}
+                                    placeholder="Tell us about your visit..."
+                                    multiline
+                                    numberOfLines={4}
+                                    value={feedbackMsg}
+                                    onChangeText={setFeedbackMsg}
+                                />
+                            </View>
+                        )}
+
+                        {/* Submit Button */}
+                        {rating > 0 && (
+                            <TouchableOpacity 
+                                style={[styles.submitBtn, submitting && { opacity: 0.7 }]}
+                                onPress={handleFeedbackSubmit}
+                                disabled={submitting}
+                            >
+                                {submitting ? (
+                                    <ActivityIndicator color="#fff" />
+                                ) : (
+                                    <Text style={styles.submitBtnText}>Submit Feedback</Text>
+                                )}
+                            </TouchableOpacity>
+                        )}
+                    </View>
+                </View>
+            </Modal>
         </View>
     );
 }
@@ -314,4 +415,17 @@ const styles = StyleSheet.create({
     nearbyName: { fontSize: 14, fontWeight: '700', color: COLORS.dark, textAlign: 'center', marginBottom: 2 },
     nearbyCat: { fontSize: 11, color: COLORS.medium },
     fallbackText: { fontSize: 14, color: COLORS.light, fontStyle: 'italic', marginTop: 8 },
+    
+    // Feedback Modal Styles
+    modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 20 },
+    feedbackModal: { backgroundColor: COLORS.white, borderRadius: 24, padding: 24, width: '100%', maxWidth: 400, ...SHADOWS.md },
+    modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
+    modalTitle: { fontSize: 18, fontWeight: '800', color: COLORS.dark },
+    modalSub: { fontSize: 13, color: COLORS.medium, marginBottom: 24 },
+    starsRow: { flexDirection: 'row', justifyContent: 'center', marginBottom: 24 },
+    inputSection: { marginBottom: 20 },
+    inputLabel: { fontSize: 13, fontWeight: '700', color: COLORS.dark, marginBottom: 10 },
+    feedbackInput: { backgroundColor: COLORS.inputBg, borderRadius: 16, padding: 16, height: 100, textAlignVertical: 'top', color: COLORS.dark, fontSize: 14 },
+    submitBtn: { backgroundColor: COLORS.orange, borderRadius: 14, paddingVertical: 16, alignItems: 'center', marginTop: 10, ...SHADOWS.sm },
+    submitBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
 });

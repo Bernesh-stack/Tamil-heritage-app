@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import {
     View, Text, ScrollView, TouchableOpacity,
-    StyleSheet, StatusBar, Alert,
+    StyleSheet, StatusBar, Alert, TextInput, ActivityIndicator,
+    RefreshControl
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -12,18 +13,100 @@ import api from '../api';
 export default function AdminDashboardScreen({ navigation }) {
     const [adminName, setAdminName] = useState('Heritage Admin');
     const [feedbacks, setFeedbacks] = useState([]);
-    const [stats, setStats] = useState({ totalUsers: 0, totalSites: 0, totalFeedback: 0, status: 'Active' });
+    const [heritageSites, setHeritageSites] = useState([]);
+    const [showUpdateList, setShowUpdateList] = useState(false);
+    const [editSiteId, setEditSiteId] = useState(null);
+    const [logs, setLogs] = useState([]);
+    const [stats, setStats] = useState({ totalUsers: 0, totalHeritageSites: 0, totalFeedback: 0, status: 'Active' });
     const [loading, setLoading] = useState(true);
+    const [showAddForm, setShowAddForm] = useState(false);
+    const [formLoading, setFormLoading] = useState(false);
+    const [formData, setFormData] = useState({
+        name: '',
+        location: '',
+        builtBy: '',
+        detail: '',
+        overview: '',
+        history: '',
+        significance: '',
+        googleMapsUrl: '',
+        latitude: '',
+        longitude: ''
+    });
+
+    const handleSaveSite = async () => {
+        if (!formData.name || !formData.location || !formData.overview) {
+            return Alert.alert('Error', 'Name, Address and Overview are required.');
+        }
+
+        setFormLoading(true);
+        try {
+            if (editSiteId) {
+                // UPDATE MODE
+                await api.put(`/api/heritage-sites/${editSiteId}`, formData);
+                Alert.alert('Success', 'Heritage site updated successfully!');
+            } else {
+                // ADD MODE
+                await api.post('/api/heritage-sites', formData);
+                Alert.alert('Success', 'Heritage site added successfully!');
+            }
+            
+            setShowAddForm(false);
+            setEditSiteId(null);
+            setFormData({
+                name: '', location: '', builtBy: '', detail: '',
+                overview: '', history: '', significance: '', googleMapsUrl: '',
+                latitude: '', longitude: ''
+            });
+            fetchData(); // Refresh list and stats
+        } catch (error) {
+            Alert.alert('Error', error.response?.data?.message || 'Failed to save site');
+        } finally {
+            setFormLoading(false);
+        }
+    };
+
+    const handleEditSelection = (site) => {
+        setEditSiteId(site._id);
+        setFormData({
+            name: site.name || '',
+            location: site.location || '',
+            builtBy: site.builtBy || '',
+            detail: site.detail || '',
+            overview: site.overview || site.description || '',
+            history: site.history || '',
+            significance: site.significance || '',
+            googleMapsUrl: site.googleMapsUrl || '',
+            latitude: site.latitude?.toString() || '',
+            longitude: site.longitude?.toString() || ''
+        });
+        setShowAddForm(true);
+        setShowUpdateList(false);
+    };
+
+    const cancelForm = () => {
+        setShowAddForm(false);
+        setEditSiteId(null);
+        setFormData({
+            name: '', location: '', builtBy: '', detail: '',
+            overview: '', history: '', significance: '', googleMapsUrl: '',
+            latitude: '', longitude: ''
+        });
+    };
 
     const fetchData = async () => {
         try {
             setLoading(true);
-            const [fbRes, statsRes] = await Promise.all([
+            const [fbRes, statsRes, logsRes, sitesRes] = await Promise.all([
                 api.get('/api/feedback'),
-                api.get('/api/admin/stats')
+                api.get('/api/admin/stats'),
+                api.get('/api/admin/logs'),
+                api.get('/api/heritage-sites')
             ]);
             setFeedbacks(fbRes.data);
             setStats(statsRes.data);
+            setLogs(logsRes.data);
+            setHeritageSites(sitesRes.data);
         } catch (error) {
             console.error('Error fetching admin dashboard data:', error);
         } finally {
@@ -63,7 +146,13 @@ export default function AdminDashboardScreen({ navigation }) {
                 </View>
             </View>
 
-            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+            <ScrollView 
+                showsVerticalScrollIndicator={false} 
+                contentContainerStyle={styles.scrollContent}
+                refreshControl={
+                    <RefreshControl refreshing={loading} onRefresh={fetchData} colors={[COLORS.orange]} tintColor={COLORS.orange} />
+                }
+            >
 
                 {/* Site Management */}
                 <View style={styles.section}>
@@ -72,43 +161,270 @@ export default function AdminDashboardScreen({ navigation }) {
                         <Text style={styles.sectionTitle}>Site Management</Text>
                     </View>
                     <View style={styles.mgmtRow}>
-                        <TouchableOpacity style={styles.mgmtBtnPrimary} onPress={() => navigation.navigate('AdminSiteForm')}>
-                            <Ionicons name="add-circle-outline" size={26} color="#fff" />
-                            <Text style={styles.mgmtBtnPrimaryText}>Add Site</Text>
+                        <TouchableOpacity 
+                            style={[styles.mgmtBtnPrimary, (showAddForm && !editSiteId) && { backgroundColor: COLORS.dark }]} 
+                            onPress={() => {
+                                if (editSiteId) {
+                                    cancelForm();
+                                } else {
+                                    setShowAddForm(!showAddForm);
+                                    setShowUpdateList(false);
+                                }
+                            }}
+                        >
+                            <Ionicons name={(showAddForm && !editSiteId) ? "close-circle-outline" : "add-circle-outline"} size={26} color="#fff" />
+                            <Text style={styles.mgmtBtnPrimaryText}>{(showAddForm && !editSiteId) ? 'Cancel' : 'Add Site'}</Text>
                         </TouchableOpacity>
-                        <TouchableOpacity style={styles.mgmtBtnSecondary} onPress={() => navigation.navigate('Explore')}>
-                            <Ionicons name="location-outline" size={26} color={COLORS.dark} />
-                            <Text style={styles.mgmtBtnSecondaryText}>Update Site</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity style={styles.mgmtBtnSecondary} onPress={() => navigation.navigate('Explore')}>
-                            <Ionicons name="close-circle-outline" size={26} color="#E74C3C" />
-                            <Text style={[styles.mgmtBtnSecondaryText, { color: '#E74C3C' }]}>Remove</Text>
+                        <TouchableOpacity 
+                            style={[styles.mgmtBtnSecondary, showUpdateList && { backgroundColor: COLORS.dark, borderColor: COLORS.dark }]} 
+                            onPress={() => {
+                                setShowUpdateList(!showUpdateList);
+                                setShowAddForm(false);
+                                setEditSiteId(null);
+                            }}
+                        >
+                            <Ionicons name={showUpdateList ? "close" : "create-outline"} size={26} color={showUpdateList ? "#fff" : COLORS.dark} />
+                            <Text style={[styles.mgmtBtnSecondaryText, showUpdateList && { color: "#fff" }]}>{showUpdateList ? 'Cancel' : 'Update Site'}</Text>
                         </TouchableOpacity>
                     </View>
+
+                    {showUpdateList && (
+                        <View style={styles.updateListContainer}>
+                            <Text style={styles.formTitle}>Select Site to Update</Text>
+                            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.siteChipScroll}>
+                                {heritageSites.map(site => (
+                                    <TouchableOpacity 
+                                        key={site._id} 
+                                        style={styles.siteChip}
+                                        onPress={() => handleEditSelection(site)}
+                                    >
+                                        <Text style={styles.siteChipText}>{site.name}</Text>
+                                        <Ionicons name="chevron-forward" size={12} color={COLORS.orange} />
+                                    </TouchableOpacity>
+                                ))}
+                            </ScrollView>
+                            {heritageSites.length === 0 && (
+                                <Text style={styles.emptyText}>No heritage sites found.</Text>
+                            )}
+                        </View>
+                    )}
+
+                    {showAddForm && (
+                        <View style={styles.addFormContainer}>
+                            <View style={styles.formHeaderRow}>
+                                <Text style={styles.formTitle}>{editSiteId ? 'Update Heritage Site' : 'Add New Heritage Site'}</Text>
+                                {editSiteId && (
+                                    <TouchableOpacity onPress={cancelForm}>
+                                        <Text style={styles.cancelLink}>Cancel Edit</Text>
+                                    </TouchableOpacity>
+                                )}
+                            </View>
+                            
+                            <Text style={styles.label}>Name of the Place *</Text>
+                            <TextInput 
+                                style={styles.input} 
+                                value={formData.name}
+                                onChangeText={t => setFormData({...formData, name: t})}
+                                placeholder="e.g. Meenakshi Temple"
+                            />
+
+                            <Text style={styles.label}>Place Address *</Text>
+                            <TextInput 
+                                style={styles.input} 
+                                value={formData.location}
+                                onChangeText={t => setFormData({...formData, location: t})}
+                                placeholder="Full address details"
+                            />
+
+                            <View style={styles.row}>
+                                <View style={{ flex: 1 }}>
+                                    <Text style={styles.label}>Built By</Text>
+                                    <TextInput 
+                                        style={styles.input} 
+                                        value={formData.builtBy}
+                                        onChangeText={t => setFormData({...formData, builtBy: t})}
+                                        placeholder="Dynasty/King"
+                                    />
+                                </View>
+                                <View style={{ width: 12 }} />
+                                <View style={{ flex: 1 }}>
+                                    <Text style={styles.label}>Region Name</Text>
+                                    <TextInput 
+                                        style={styles.input} 
+                                        value={formData.detail}
+                                        onChangeText={t => setFormData({...formData, detail: t})}
+                                        placeholder="City/District"
+                                    />
+                                </View>
+                            </View>
+
+                            <Text style={styles.label}>Overview *</Text>
+                            <TextInput 
+                                style={[styles.input, styles.textArea]} 
+                                value={formData.overview}
+                                onChangeText={t => setFormData({...formData, overview: t})}
+                                multiline numberOfLines={3}
+                                placeholder="Short overview of the site"
+                            />
+
+                            <Text style={styles.label}>History</Text>
+                            <TextInput 
+                                style={[styles.input, styles.textArea]} 
+                                value={formData.history}
+                                onChangeText={t => setFormData({...formData, history: t})}
+                                multiline numberOfLines={3}
+                                placeholder="Historical background"
+                            />
+
+                            <Text style={styles.label}>Significance</Text>
+                            <TextInput 
+                                style={[styles.input, styles.textArea]} 
+                                value={formData.significance}
+                                onChangeText={t => setFormData({...formData, significance: t})}
+                                multiline numberOfLines={3}
+                                placeholder="Architectural/Cultural significance"
+                            />
+
+                            <Text style={styles.label}>Google Map Address / Link</Text>
+                            <TextInput 
+                                style={styles.input} 
+                                value={formData.googleMapsUrl}
+                                onChangeText={t => setFormData({...formData, googleMapsUrl: t})}
+                                placeholder="Paste Google Maps link here"
+                            />
+
+                            <View style={styles.row}>
+                                <View style={{ flex: 1 }}>
+                                    <Text style={styles.label}>Latitude (Optional)</Text>
+                                    <TextInput 
+                                        style={styles.input} 
+                                        value={formData.latitude}
+                                        onChangeText={t => setFormData({...formData, latitude: t})}
+                                        placeholder="Optional coords"
+                                        keyboardType="numeric"
+                                    />
+                                </View>
+                                <View style={{ width: 12 }} />
+                                <View style={{ flex: 1 }}>
+                                    <Text style={styles.label}>Longitude (Optional)</Text>
+                                    <TextInput 
+                                        style={styles.input} 
+                                        value={formData.longitude}
+                                        onChangeText={t => setFormData({...formData, longitude: t})}
+                                        placeholder="Optional coords"
+                                        keyboardType="numeric"
+                                    />
+                                </View>
+                            </View>
+
+                            <TouchableOpacity 
+                                style={[styles.submitBtn, formLoading && { opacity: 0.7 }]} 
+                                onPress={handleSaveSite}
+                                disabled={formLoading}
+                            >
+                                {formLoading ? (
+                                    <ActivityIndicator color="#fff" />
+                                ) : (
+                                    <Text style={styles.submitBtnText}>{editSiteId ? 'Update Site Details' : 'Submit Site Details'}</Text>
+                                )}
+                            </TouchableOpacity>
+                        </View>
+                    )}
                 </View>
 
                 {/* Feedback & Community */}
                 <View style={styles.section}>
-                    <View style={styles.sectionHeader}>
-                        <MaterialCommunityIcons name="comment-multiple-outline" size={20} color={COLORS.dark} />
-                        <Text style={styles.sectionTitle}>Feedback & Community</Text>
-                        <View style={styles.newBadge}><Text style={styles.newBadgeText}>{feedbacks.length} New</Text></View>
+                {/* Analytics Section */}
+                <View style={styles.sectionHeader}>
+                    <Text style={styles.sectionTitle}>Analytics & Reporting</Text>
+                </View>
+
+                <View style={styles.analyticsCard}>
+                    <View style={styles.analyticsDecor} />
+                    <View style={styles.analyticsTop}>
+                        <Text style={styles.analyticsLabel}>TOTAL PLATFORM ENGAGEMENT</Text>
+                        <View style={styles.analyticsNumRow}>
+                            <Text style={styles.analyticsNum}>
+                                {(stats.totalUsers || 0) + (stats.totalHeritageSites || 0) * 10 + (feedbacks.length || 0) * 5}
+                            </Text>
+                            {stats.totalUsers > 0 && (
+                                <Text style={styles.analyticsGrowth}>Live</Text>
+                            )}
+                        </View>
                     </View>
-                    {feedbacks.map(fb => (
-                        <View key={fb._id} style={styles.feedbackCard}>
+
+                    <View style={styles.analyticsGrid}>
+                        <View style={styles.statsBox}>
+                            <Text style={styles.statsLabel}>Total Users</Text>
+                            <Text style={styles.statsVal}>{stats.totalUsers || 0}</Text>
+                        </View>
+                        <View style={styles.statsBox}>
+                            <Text style={styles.statsLabel}>Heritage Sites</Text>
+                            <Text style={styles.statsVal}>{stats.totalHeritageSites || 0}</Text>
+                        </View>
+                        <View style={styles.statsBox}>
+                            <Text style={styles.statsLabel}>Avg Rating</Text>
+                            <Text style={styles.statsVal}>{(feedbacks.reduce((acc, f) => acc + (f.rating || 0), 0) / (feedbacks.length || 1)).toFixed(1)}</Text>
+                        </View>
+                        <View style={styles.statsBox}>
+                            <Text style={styles.statsLabel}>Total Feedback</Text>
+                            <Text style={styles.statsVal}>{feedbacks.length}</Text>
+                        </View>
+                    </View>
+
+                    <TouchableOpacity 
+                        style={styles.analyticsBtn}
+                        onPress={() => Alert.alert('Analytics Report', 'This would typically trigger a PDF/CSV download in a production app.')}
+                    >
+                        <Ionicons name="bar-chart" size={20} color="#fff" />
+                        <Text style={styles.analyticsBtnText}>View Full Report</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity 
+                        style={styles.downloadBtn}
+                        onPress={() => Alert.alert('Export', 'Downloading latest data...')}
+                    >
+                        <Ionicons name="download" size={16} color={COLORS.light} />
+                        <Text style={styles.downloadBtnText}>Export JSON Data</Text>
+                    </TouchableOpacity>
+                </View>
+
+                {/* Feedback Section */}
+                <View style={styles.sectionHeader}>
+                    <Text style={styles.sectionTitle}>Feedback & Community</Text>
+                </View>
+
+                {feedbacks.length > 0 ? (
+                    feedbacks.map((item) => (
+                        <View key={item._id} style={styles.feedbackCard}>
                             <View style={styles.fbHeader}>
                                 <View style={styles.fbAvatar}>
-                                    <Text style={styles.fbAvatarText}>{(fb.userId?.name || 'U')[0]}</Text>
+                                    <Text style={styles.fbAvatarText}>
+                                        {(item.userId?.name || 'U').charAt(0).toUpperCase()}
+                                    </Text>
                                 </View>
                                 <View style={styles.fbMeta}>
-                                    <Text style={styles.fbName}>{fb.userId?.name || 'Anonymous'}</Text>
-                                    <Text style={styles.fbSite}>{fb.siteId?.name || 'Site'} • {new Date(fb.createdAt).toLocaleDateString()}</Text>
+                                    <Text style={styles.fbName}>{item.userId?.name || 'Anonymous User'}</Text>
+                                    <View style={styles.starsSmall}>
+                                        {[1, 2, 3, 4, 5].map((star) => (
+                                            <Ionicons 
+                                                key={star} 
+                                                name="star" 
+                                                size={12} 
+                                                color={star <= (item.rating || 0) ? COLORS.orange : COLORS.border} 
+                                            />
+                                        ))}
+                                    </View>
                                 </View>
-                                <TouchableOpacity>
-                                    <Ionicons name="ellipsis-vertical" size={18} color={COLORS.light} />
-                                </TouchableOpacity>
+                                <Text style={styles.fbSite}>{item.siteId?.name || 'General'}</Text>
                             </View>
-                            <Text style={styles.fbMsg}>{fb.message}</Text>
+
+                            {item.message ? (
+                                <Text style={styles.fbMsg} numberOfLines={3}>
+                                    "{item.message}"
+                                </Text>
+                            ) : null}
+
                             <View style={styles.fbActions}>
                                 <TouchableOpacity style={styles.fbReply}>
                                     <Text style={styles.fbReplyText}>Reply</Text>
@@ -118,49 +434,65 @@ export default function AdminDashboardScreen({ navigation }) {
                                 </TouchableOpacity>
                             </View>
                         </View>
-                    ))}
+                    ))
+                ) : (
+                    <View style={styles.feedbackCard}>
+                        <Text style={{ textAlign: 'center', color: COLORS.light, fontWeight: '700' }}>No feedback received yet.</Text>
+                    </View>
+                )}
                 </View>
 
-                {/* Analytics */}
-                <View style={styles.section}>
+                {/* Activity Logs */}
+                <View style={[styles.section, { marginTop: 10 }]}>
                     <View style={styles.sectionHeader}>
-                        <MaterialCommunityIcons name="chart-bar" size={20} color={COLORS.dark} />
-                        <Text style={styles.sectionTitle}>Analytics & Reporting</Text>
+                        <MaterialCommunityIcons name="history" size={20} color={COLORS.dark} />
+                        <Text style={styles.sectionTitle}>Admin Activity Logs</Text>
+                        <TouchableOpacity onPress={() => navigation.navigate('Logs')}>
+                            <Text style={styles.viewMoreLink}>View All</Text>
+                        </TouchableOpacity>
+                        <View style={styles.newBadge}>
+                            <Text style={styles.newBadgeText}>LIVE</Text>
+                        </View>
                     </View>
-                    <View style={styles.analyticsCard}>
-                        <View style={styles.analyticsTop}>
-                            <View>
-                                <Text style={styles.analyticsLabel}>MONTHLY ENGAGEMENT</Text>
-                                <View style={styles.analyticsNumRow}>
-                                    <Text style={styles.analyticsNum}>{stats.totalUsers > 1000 ? (stats.totalUsers/1000).toFixed(1) + 'k' : stats.totalUsers}</Text>
-                                    <Text style={styles.analyticsGrowth}> Total Users</Text>
+
+                    {logs.length > 0 ? (
+                        <View style={styles.logsContainer}>
+                            {logs.map((log) => (
+                                <View key={log._id} style={styles.logItem}>
+                                    <View style={[
+                                        styles.logIcon, 
+                                        { backgroundColor: log.action.includes('DELETE') ? '#FEE2E2' : log.action.includes('CREATE') ? '#DCFCE7' : '#FEF3C7' }
+                                    ]}>
+                                        <MaterialCommunityIcons 
+                                            name={
+                                                log.action.includes('DELETE') ? 'delete-outline' : 
+                                                log.action.includes('CREATE') ? 'plus-circle-outline' : 
+                                                'pencil-outline'
+                                            } 
+                                            size={18} 
+                                            color={
+                                                log.action.includes('DELETE') ? '#EF4444' : 
+                                                log.action.includes('CREATE') ? '#22C55E' : 
+                                                '#F59E0B'
+                                            } 
+                                        />
+                                    </View>
+                                    <View style={styles.logInfo}>
+                                        <Text style={styles.logText} numberOfLines={2}>{log.details}</Text>
+                                        <View style={styles.logMeta}>
+                                            <Text style={styles.logAdmin}>{log.adminId?.name || 'Admin'}</Text>
+                                            <Text style={styles.logDot}>•</Text>
+                                            <Text style={styles.logTime}>{new Date(log.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
+                                        </View>
+                                    </View>
                                 </View>
-                            </View>
-                            <View style={styles.barChart}>
-                                {[40, 65, 50, 80, 70, 90].map((h, i) => (
-                                    <View key={i} style={[styles.bar, { height: h * 0.5, opacity: i === 5 ? 1 : 0.5 }]} />
-                                ))}
-                            </View>
+                            ))}
                         </View>
-                        <View style={styles.analyticsStats}>
-                            <View style={styles.analyticsStat}>
-                                <Text style={styles.analyticsStatLabel}>Active Sites</Text>
-                                <Text style={styles.analyticsStatVal}>{stats.totalHeritageSites || 0}</Text>
-                            </View>
-                            <View style={styles.analyticsStat}>
-                                <Text style={styles.analyticsStatLabel}>Total Feedback</Text>
-                                <Text style={styles.analyticsStatVal}>{stats.totalFeedback}</Text>
-                            </View>
+                    ) : (
+                        <View style={styles.feedbackCard}>
+                            <Text style={{ textAlign: 'center', color: COLORS.light, fontWeight: '700' }}>No activity logged yet.</Text>
                         </View>
-                        <TouchableOpacity style={styles.analyticsBtn} onPress={() => Alert.alert('Analytics Report', 'Coming soon!')}>
-                            <MaterialCommunityIcons name="chart-line" size={18} color="#fff" />
-                            <Text style={styles.analyticsBtnText}>Analytics Report</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity style={styles.downloadBtn} onPress={() => Alert.alert('Download Report', 'Coming soon!')}>
-                            <MaterialCommunityIcons name="download" size={18} color={COLORS.white} />
-                            <Text style={styles.downloadBtnText}>Download Report</Text>
-                        </TouchableOpacity>
-                    </View>
+                    )}
                 </View>
 
             </ScrollView>
@@ -188,33 +520,199 @@ const styles = StyleSheet.create({
     mgmtBtnPrimaryText: { fontSize: 13, fontWeight: '700', color: '#fff' },
     mgmtBtnSecondary: { flex: 1, backgroundColor: COLORS.white, borderRadius: 16, paddingVertical: 18, alignItems: 'center', gap: 8, borderWidth: 1.5, borderColor: COLORS.border, ...SHADOWS.sm },
     mgmtBtnSecondaryText: { fontSize: 13, fontWeight: '700', color: COLORS.dark },
-    feedbackCard: { backgroundColor: COLORS.white, borderRadius: 16, padding: 16, ...SHADOWS.sm, borderWidth: 1, borderColor: COLORS.border },
-    fbHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
-    fbAvatar: { width: 38, height: 38, borderRadius: 19, backgroundColor: COLORS.inputBg, alignItems: 'center', justifyContent: 'center', marginRight: 10 },
-    fbAvatarText: { fontSize: 16, fontWeight: '700', color: COLORS.medium },
+    // Feedback & Community Redesign
+    feedbackCard: { 
+        backgroundColor: COLORS.white, 
+        borderRadius: 24, 
+        padding: 20, 
+        marginBottom: 16,
+        ...SHADOWS.md, 
+        borderWidth: 1, 
+        borderColor: 'rgba(212, 130, 26, 0.1)' 
+    },
+    fbHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 14 },
+    fbAvatar: { 
+        width: 48, 
+        height: 48, 
+        borderRadius: 24, 
+        backgroundColor: COLORS.orangeBg, 
+        alignItems: 'center', 
+        justifyContent: 'center', 
+        marginRight: 12,
+        borderWidth: 2,
+        borderColor: COLORS.orangeLight
+    },
+    fbAvatarText: { fontSize: 18, fontWeight: '800', color: COLORS.orange },
     fbMeta: { flex: 1 },
-    fbName: { fontSize: 14, fontWeight: '700', color: COLORS.dark },
-    fbSite: { fontSize: 11, color: COLORS.light, marginTop: 1 },
-    fbMsg: { fontSize: 13, color: COLORS.medium, lineHeight: 20, marginBottom: 12 },
-    fbActions: { flexDirection: 'row', gap: 10 },
-    fbReply: { flex: 1, paddingVertical: 10, borderRadius: 10, borderWidth: 1.5, borderColor: COLORS.border, alignItems: 'center' },
-    fbReplyText: { fontSize: 13, fontWeight: '700', color: COLORS.orange },
-    fbArchive: { flex: 1, paddingVertical: 10, borderRadius: 10, borderWidth: 1.5, borderColor: COLORS.border, alignItems: 'center' },
-    fbArchiveText: { fontSize: 13, fontWeight: '600', color: COLORS.medium },
-    analyticsCard: { backgroundColor: '#1A1A2E', borderRadius: 20, padding: 20, gap: 14 },
-    analyticsTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
-    analyticsLabel: { fontSize: 9, fontWeight: '700', letterSpacing: 1.5, color: '#9999BB', marginBottom: 4 },
-    analyticsNumRow: { flexDirection: 'row', alignItems: 'baseline' },
-    analyticsNum: { fontSize: 32, fontWeight: '800', color: '#fff' },
-    analyticsGrowth: { fontSize: 13, fontWeight: '700', color: COLORS.green },
-    barChart: { flexDirection: 'row', alignItems: 'flex-end', gap: 4, height: 45 },
-    bar: { width: 8, backgroundColor: COLORS.orange, borderRadius: 4 },
-    analyticsStats: { flexDirection: 'row', gap: 12 },
-    analyticsStat: { flex: 1, backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 12, padding: 14 },
-    analyticsStatLabel: { fontSize: 10, color: '#9999BB', marginBottom: 4 },
-    analyticsStatVal: { fontSize: 18, fontWeight: '800', color: '#fff' },
-    analyticsBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: COLORS.orange, borderRadius: 14, paddingVertical: 14 },
-    analyticsBtnText: { fontSize: 14, fontWeight: '700', color: '#fff' },
-    downloadBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: 14, paddingVertical: 14 },
-    downloadBtnText: { fontSize: 14, fontWeight: '700', color: '#fff' },
+    fbName: { fontSize: 15, fontWeight: '800', color: COLORS.dark },
+    fbSite: { fontSize: 11, color: COLORS.medium, marginTop: 2, fontWeight: '600' },
+    starsSmall: { flexDirection: 'row', gap: 2, marginTop: 4 },
+    fbMsg: { 
+        fontSize: 14, 
+        color: COLORS.medium, 
+        lineHeight: 22, 
+        marginBottom: 16, 
+        fontStyle: 'italic',
+        backgroundColor: COLORS.inputBg,
+        padding: 12,
+        borderRadius: 16
+    },
+    fbActions: { flexDirection: 'row', gap: 12 },
+    fbReply: { 
+        flex: 1, 
+        backgroundColor: COLORS.dark,
+        paddingVertical: 12, 
+        borderRadius: 14, 
+        alignItems: 'center' 
+    },
+    fbReplyText: { fontSize: 13, fontWeight: '700', color: '#fff' },
+    fbArchive: { 
+        flex: 1, 
+        paddingVertical: 12, 
+        borderRadius: 14, 
+        borderWidth: 1.5, 
+        borderColor: COLORS.border, 
+        alignItems: 'center' 
+    },
+    fbArchiveText: { fontSize: 13, fontWeight: '700', color: COLORS.medium },
+
+    // Analytics & Reporting Redesign
+    analyticsCard: { 
+        backgroundColor: COLORS.dark, 
+        borderRadius: 28, 
+        padding: 24, 
+        overflow: 'hidden',
+        ...SHADOWS.lg 
+    },
+    analyticsDecor: {
+        position: 'absolute',
+        top: -20,
+        right: -20,
+        width: 100,
+        height: 100,
+        borderRadius: 50,
+        backgroundColor: COLORS.orange,
+        opacity: 0.1
+    },
+    analyticsTop: { marginBottom: 24 },
+    analyticsLabel: { fontSize: 10, fontWeight: '800', letterSpacing: 2, color: COLORS.light, marginBottom: 8 },
+    analyticsNumRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 8 },
+    analyticsNum: { fontSize: 40, fontWeight: '900', color: '#fff' },
+    analyticsGrowth: { fontSize: 14, fontWeight: '700', color: COLORS.green, marginBottom: 6 },
+    analyticsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 20 },
+    statsBox: { 
+        flex: 1, 
+        minWidth: '45%', 
+        backgroundColor: 'rgba(255,255,255,0.05)', 
+        borderRadius: 20, 
+        padding: 16,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.1)'
+    },
+    statsLabel: { fontSize: 11, color: COLORS.light, marginBottom: 6, fontWeight: '600' },
+    statsVal: { fontSize: 22, fontWeight: '800', color: '#fff' },
+    analyticsBtn: { 
+        flexDirection: 'row', 
+        alignItems: 'center', 
+        justifyContent: 'center', 
+        gap: 10, 
+        backgroundColor: COLORS.orange, 
+        borderRadius: 18, 
+        paddingVertical: 16,
+        ...SHADOWS.md
+    },
+    analyticsBtnText: { fontSize: 15, fontWeight: '800', color: '#fff' },
+    downloadBtn: { 
+        flexDirection: 'row', 
+        alignItems: 'center', 
+        justifyContent: 'center', 
+        gap: 10, 
+        marginTop: 12,
+        paddingVertical: 12
+    },
+    downloadBtnText: { fontSize: 13, fontWeight: '700', color: COLORS.light },
+
+    // Existing Form Styles
+    addFormContainer: { backgroundColor: COLORS.white, borderRadius: 24, padding: 24, marginTop: 10, ...SHADOWS.md, borderWidth: 1, borderColor: COLORS.border },
+    formHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 },
+    cancelLink: { fontSize: 13, fontWeight: '700', color: COLORS.orange, textDecorationLine: 'underline' },
+    viewMoreLink: { fontSize: 13, fontWeight: '700', color: COLORS.orange, marginRight: 8 },
+    formTitle: { fontSize: 18, fontWeight: '800', color: COLORS.dark },
+    label: { fontSize: 13, fontWeight: '700', color: COLORS.medium, marginBottom: 8, marginTop: 12 },
+    input: { backgroundColor: COLORS.inputBg, borderRadius: 14, padding: 14, fontSize: 14, color: COLORS.dark },
+    textArea: { height: 90, textAlignVertical: 'top' },
+    row: { flexDirection: 'row' },
+    submitBtn: { backgroundColor: COLORS.orange, borderRadius: 16, paddingVertical: 16, alignItems: 'center', marginTop: 24, ...SHADOWS.lg },
+    submitBtnText: { color: '#fff', fontSize: 16, fontWeight: '800' },
+
+    // Update List Styles
+    updateListContainer: { backgroundColor: COLORS.white, borderRadius: 24, padding: 20, marginTop: 10, ...SHADOWS.md, borderWidth: 1, borderColor: COLORS.border },
+    siteChipScroll: { marginTop: 12 },
+    siteChip: { 
+        flexDirection: 'row', 
+        alignItems: 'center', 
+        backgroundColor: COLORS.orangeBg, 
+        paddingHorizontal: 16, 
+        paddingVertical: 10, 
+        borderRadius: 20, 
+        marginRight: 10,
+        gap: 6,
+        borderWidth: 1,
+        borderColor: COLORS.orangeLight
+    },
+    siteChipText: { fontSize: 13, fontWeight: '700', color: COLORS.dark },
+    emptyText: { textAlign: 'center', color: COLORS.medium, marginTop: 10, fontStyle: 'italic' },
+
+    // Logs Styles
+    logsContainer: {
+        backgroundColor: COLORS.white,
+        borderRadius: 24,
+        padding: 8,
+        borderWidth: 1,
+        borderColor: COLORS.border,
+        ...SHADOWS.sm
+    },
+    logItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 14,
+        borderBottomWidth: 1,
+        borderBottomColor: COLORS.border,
+        gap: 12
+    },
+    logIcon: {
+        width: 36,
+        height: 36,
+        borderRadius: 12,
+        alignItems: 'center',
+        justifyContent: 'center'
+    },
+    logInfo: {
+        flex: 1
+    },
+    logText: {
+        fontSize: 14,
+        fontWeight: '700',
+        color: COLORS.dark,
+        marginBottom: 2
+    },
+    logMeta: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6
+    },
+    logAdmin: {
+        fontSize: 11,
+        fontWeight: '600',
+        color: COLORS.orange
+    },
+    logDot: {
+        fontSize: 10,
+        color: COLORS.medium
+    },
+    logTime: {
+        fontSize: 11,
+        color: COLORS.medium,
+        fontWeight: '500'
+    }
 });
