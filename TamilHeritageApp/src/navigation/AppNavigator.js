@@ -14,6 +14,7 @@ import SiteDetailsScreen from '../screens/SiteDetailsScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import AdminDashboardScreen from '../screens/AdminDashboardScreen';
 import AdminProfileScreen from '../screens/AdminProfileScreen';
+import AdminSiteFormScreen from '../screens/AdminSiteFormScreen';
 import SavedScreen from '../screens/SavedScreen';
 import PlaceholderScreen from '../screens/PlaceholderScreen';
 import { COLORS } from '../constants/theme';
@@ -128,6 +129,7 @@ export default function AppNavigator() {
                 ) : isAdmin ? (
                     <>
                         <Stack.Screen name="AdminTabs" component={AdminTabs} />
+                        <Stack.Screen name="AdminSiteForm" component={AdminSiteFormScreen} />
                         <Stack.Screen name="SiteDetails" component={SiteDetailsScreen} />
                     </>
                 ) : (

@@ -72,17 +72,17 @@ export default function AdminDashboardScreen({ navigation }) {
                         <Text style={styles.sectionTitle}>Site Management</Text>
                     </View>
                     <View style={styles.mgmtRow}>
-                        <TouchableOpacity style={styles.mgmtBtnPrimary} onPress={() => Alert.alert('Add Site', 'Coming soon!')}>
+                        <TouchableOpacity style={styles.mgmtBtnPrimary} onPress={() => navigation.navigate('AdminSiteForm')}>
                             <Ionicons name="add-circle-outline" size={26} color="#fff" />
                             <Text style={styles.mgmtBtnPrimaryText}>Add Site</Text>
                         </TouchableOpacity>
-                        <TouchableOpacity style={styles.mgmtBtnSecondary} onPress={() => Alert.alert('Update', 'Coming soon!')}>
+                        <TouchableOpacity style={styles.mgmtBtnSecondary} onPress={() => navigation.navigate('Explore')}>
                             <Ionicons name="location-outline" size={26} color={COLORS.dark} />
-                            <Text style={styles.mgmtBtnSecondaryText}>Update</Text>
+                            <Text style={styles.mgmtBtnSecondaryText}>Update Site</Text>
                         </TouchableOpacity>
-                        <TouchableOpacity style={styles.mgmtBtnSecondary} onPress={() => Alert.alert('Delete', 'Coming soon!')}>
+                        <TouchableOpacity style={styles.mgmtBtnSecondary} onPress={() => navigation.navigate('Explore')}>
                             <Ionicons name="close-circle-outline" size={26} color="#E74C3C" />
-                            <Text style={[styles.mgmtBtnSecondaryText, { color: '#E74C3C' }]}>Delete</Text>
+                            <Text style={[styles.mgmtBtnSecondaryText, { color: '#E74C3C' }]}>Remove</Text>
                         </TouchableOpacity>
                     </View>
                 </View>
@@ -145,7 +145,7 @@ export default function AdminDashboardScreen({ navigation }) {
                         <View style={styles.analyticsStats}>
                             <View style={styles.analyticsStat}>
                                 <Text style={styles.analyticsStatLabel}>Active Sites</Text>
-                                <Text style={styles.analyticsStatVal}>{stats.totalSites}</Text>
+                                <Text style={styles.analyticsStatVal}>{stats.totalHeritageSites || 0}</Text>
                             </View>
                             <View style={styles.analyticsStat}>
                                 <Text style={styles.analyticsStatLabel}>Total Feedback</Text>

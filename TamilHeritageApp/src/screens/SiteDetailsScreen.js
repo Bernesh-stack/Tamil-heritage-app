@@ -2,10 +2,12 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
     View, Text, Image, ScrollView, TouchableOpacity,
     StyleSheet, StatusBar, Alert, Share, ActivityIndicator,
+    Linking,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import api from '../api';
 import { COLORS, SHADOWS } from '../constants/theme';
+import { useAuth } from '../context/AuthContext';
 
 const IMAGE_MAP = {
     brihadeeswarar: require('../../assets/images/brihadeeswarar.png'),
@@ -23,11 +25,35 @@ const IMAGE_MAP = {
     nagaraja:       require('../../assets/images/nagaraja.png'),
 };
 
+const PLACEHOLDER_SITE = require('../../assets/images/brihadeeswarar.png');
+
 export default function SiteDetailsScreen({ route, navigation }) {
     const { siteId } = route.params;
+    const { user } = useAuth();
     const [site, setSite] = useState(null);
     const [loading, setLoading] = useState(true);
     const [favorited, setFavorited] = useState(false);
+
+    const trackView = useCallback(async () => {
+        try {
+            const { data } = await api.put(`/api/users/view-site/${siteId}`);
+            if (data.triggerFeedback) {
+                Alert.alert(
+                    "Smart Feedback",
+                    "Would you like to give feedback?",
+                    [
+                        { text: "No", style: "cancel" },
+                        { 
+                            text: "Yes", 
+                            onPress: () => Alert.alert("Feedback", "Feedback form coming soon! Thank you for your interest.") 
+                        }
+                    ]
+                );
+            }
+        } catch (err) {
+            console.log('Error tracking view:', err);
+        }
+    }, [siteId]);
 
     const fetchDetails = useCallback(async () => {
         setLoading(true);
@@ -39,13 +65,16 @@ export default function SiteDetailsScreen({ route, navigation }) {
             setSite(siteRes.data);
             const isSaved = savedRes.data.some(s => (s.siteId?._id || s.siteId) === siteId);
             setFavorited(isSaved);
+            
+            // Track view after details are loaded
+            trackView();
         } catch (err) {
             Alert.alert('Error', 'Could not load site details.');
             navigation.goBack();
         } finally {
             setLoading(false);
         }
-    }, [siteId, navigation]);
+    }, [siteId, navigation, trackView]);
 
     useEffect(() => {
         fetchDetails();
@@ -69,6 +98,38 @@ export default function SiteDetailsScreen({ route, navigation }) {
         await Share.share({ message: `Explore ${site.name} — ${site.location}. Discover more on Tamil Heritage App!` });
     };
 
+    const handleDeleteSite = () => {
+        Alert.alert(
+            "Delete Site",
+            "Are you sure you want to permanently remove this heritage site?",
+            [
+                { text: "Cancel", style: "cancel" },
+                { 
+                    text: "Delete", 
+                    style: "destructive",
+                    onPress: async () => {
+                        try {
+                            await api.delete(`/api/heritage-sites/${siteId}`);
+                            Alert.alert("Success", "Site removed successfully.");
+                            navigation.goBack();
+                        } catch (err) {
+                            Alert.alert("Error", "Failed to delete site.");
+                        }
+                    }
+                }
+            ]
+        );
+    };
+
+    const handleGetDirections = () => {
+        if (site.latitude && site.longitude) {
+            const url = `https://www.google.com/maps?q=${site.latitude},${site.longitude}`;
+            Linking.openURL(url).catch(() => Alert.alert('Error', 'Could not open Google Maps.'));
+        } else {
+            Alert.alert('Location not available', 'Coordinates for this site have not been added yet.');
+        }
+    };
+
     if (loading) {
         return (
             <View style={styles.loaderWrap}>
@@ -82,7 +143,7 @@ export default function SiteDetailsScreen({ route, navigation }) {
 
     const heroImage = (site.imageKey && IMAGE_MAP[site.imageKey]) 
         ? IMAGE_MAP[site.imageKey] 
-        : (site.image ? { uri: site.image } : IMAGE_MAP.brihadeeswarar);
+        : (site.image ? { uri: site.image } : PLACEHOLDER_SITE);
 
     return (
         <View style={styles.screen}>
@@ -95,6 +156,16 @@ export default function SiteDetailsScreen({ route, navigation }) {
                 </TouchableOpacity>
                 <Text style={styles.headerTitle}>Site Details</Text>
                 <View style={styles.headerRight}>
+                    {user?.isAdmin && (
+                        <>
+                            <TouchableOpacity style={styles.headerBtn} onPress={() => navigation.navigate('AdminSiteForm', { site })}>
+                                <Ionicons name="create-outline" size={22} color={COLORS.orange} />
+                            </TouchableOpacity>
+                            <TouchableOpacity style={styles.headerBtn} onPress={handleDeleteSite}>
+                                <Ionicons name="trash-outline" size={22} color="#E74C3C" />
+                            </TouchableOpacity>
+                        </>
+                    )}
                     <TouchableOpacity style={styles.headerBtn} onPress={handleShare}>
                         <Ionicons name="share-social-outline" size={22} color={COLORS.dark} />
                     </TouchableOpacity>
@@ -162,12 +233,32 @@ export default function SiteDetailsScreen({ route, navigation }) {
                         </TouchableOpacity>
                         <TouchableOpacity
                             style={[styles.btnAction, { backgroundColor: COLORS.inputBg }]}
-                            onPress={() => Alert.alert('Directions', 'Opening maps…')}
+                            onPress={handleGetDirections}
                         >
                             <MaterialCommunityIcons name="map-marker-outline" size={20} color={COLORS.dark} />
                             <Text style={[styles.btnActionText, { color: COLORS.dark }]}>Get Directions</Text>
                         </TouchableOpacity>
                     </View>
+                </View>
+
+                {/* Nearby Attractions - Horizontal Scroll */}
+                <View style={styles.gallerySection}>
+                    <Text style={styles.sectionTitle}>Nearby Attractions</Text>
+                    {site.nearbyPlaces && site.nearbyPlaces.length > 0 ? (
+                        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.galleryRow}>
+                            {site.nearbyPlaces.map((place, idx) => (
+                                <View key={idx} style={styles.nearbyCard}>
+                                    <View style={styles.nearbyIconWrap}>
+                                        <MaterialCommunityIcons name="map-marker-radius" size={24} color={COLORS.orange} />
+                                    </View>
+                                    <Text style={styles.nearbyName}>{place.name}</Text>
+                                    <Text style={styles.nearbyCat}>{place.category}</Text>
+                                </View>
+                            ))}
+                        </ScrollView>
+                    ) : (
+                        <Text style={styles.fallbackText}>No nearby attractions available</Text>
+                    )}
                 </View>
 
                 {/* Photo Gallery - Dummy */}
@@ -218,4 +309,9 @@ const styles = StyleSheet.create({
     gallerySection: { marginTop: 24, paddingLeft: 20 },
     galleryRow: { paddingRight: 20, gap: 12 },
     galleryImg: { width: 180, height: 130, borderRadius: 16 },
+    nearbyCard: { width: 150, backgroundColor: '#fff', borderRadius: 16, padding: 12, ...SHADOWS.sm, alignItems: 'center' },
+    nearbyIconWrap: { width: 44, height: 44, borderRadius: 22, backgroundColor: COLORS.inputBg, alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
+    nearbyName: { fontSize: 14, fontWeight: '700', color: COLORS.dark, textAlign: 'center', marginBottom: 2 },
+    nearbyCat: { fontSize: 11, color: COLORS.medium },
+    fallbackText: { fontSize: 14, color: COLORS.light, fontStyle: 'italic', marginTop: 8 },
 });
